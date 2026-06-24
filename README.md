@@ -22,16 +22,18 @@ AIチャットを通じて「この形は何？」「ブレイクした？」「
 
 ```
 fx_learning/
-├── backend/              # Python FastAPI サーバー
+├── backend/              # Python FastAPI サーバー（クロスプラットフォーム）
 │   ├── app/
 │   │   ├── api/          # ルーティング（エンドポイント定義）
 │   │   ├── services/     # ビジネスロジック（データ取得、AI、指標計算）
 │   │   ├── models/       # データモデル（Pydantic）
 │   │   ├── core/         # 設定、共通ユーティリティ
+│   │   ├── db/           # データベース（SQLite永続化）
+│   │   ├── prompts/      # AIプロンプトファイル
 │   │   └── main.py       # FastAPI アプリエントリポイント
 │   ├── tests/
 │   └── requirements.txt
-├── frontend/             # React + Vite
+├── frontend/             # React + Vite（クロスプラットフォーム）
 │   ├── src/
 │   │   ├── components/   # UIコンポーネント
 │   │   ├── services/     # API通信層
@@ -40,17 +42,24 @@ fx_learning/
 │   │   ├── config/       # 設定読み込み
 │   │   └── App.tsx
 │   └── package.json
+├── data/                 # SQLite DB（git管理外）
 ├── docs/                 # ドキュメント
 │   ├── function_map.md   # 機能マップ
 │   └── system_config.md  # システム設定・ファイル管理
 ├── .github/
 │   └── copilot-instructions.md
-├── .env                  # 環境変数（ユーザー設定）
+├── .env                  # 環境変数（ユーザー設定・git管理外）
 ├── .env.example          # 環境変数テンプレート
-├── run_backend.py        # バックエンド起動スクリプト
-├── run_frontend.bat      # フロントエンド起動スクリプト
+├── run_backend.py        # バックエンド起動（Python・共通）
+├── run_frontend.py       # フロントエンド起動（Python・共通）
+├── setup.bat             # Windows セットアップ
+├── setup.sh              # Mac/Linux セットアップ
 └── README.md
 ```
+
+> **クロスプラットフォーム方針**: コアロジック（backend/, frontend/）は全てOS非依存。
+> OS固有の処理が必要な場合は `windows/` または `mac/` フォルダに格納する。
+> 起動スクリプトとセットアップスクリプトのみrootに配置可。
 
 ## プロジェクトルール
 
@@ -78,21 +87,40 @@ fx_learning/
 
 ## セットアップ
 
+### Windows
+```bat
+setup.bat
+```
+
+### Mac/Linux
+```bash
+chmod +x setup.sh
+./setup.sh
+```
+
+### 手動セットアップ
 ```bash
 # 1. 環境変数を設定
 cp .env.example .env
-# .env を編集してAPIキーを設定
+# .env を編集してGITHUB_TOKENを設定
 
 # 2. バックエンド
 cd backend
 pip install -r requirements.txt
-cd ..
-python run_backend.py
 
 # 3. フロントエンド
 cd frontend
 npm install
-npm run dev
+```
+
+## 起動
+
+```bash
+# バックエンド（ターミナル1）
+python run_backend.py
+
+# フロントエンド（ターミナル2）
+python run_frontend.py
 ```
 
 ## TODO

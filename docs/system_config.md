@@ -8,8 +8,10 @@
 | README.md | プロジェクト全体説明 | |
 | .env | ユーザー環境変数 | git管理外 |
 | .env.example | 環境変数テンプレート | |
-| run_backend.py | バックエンド起動 | 未作成 |
-| run_frontend.bat | フロントエンド起動 | 未作成 |
+| run_backend.py | バックエンド起動 | Python・共通 |
+| run_frontend.py | フロントエンド起動 | Python・共通 |
+| setup.bat | Windowsセットアップ | Windows専用 |
+| setup.sh | Mac/Linuxセットアップ | Mac/Linux専用 |
 
 ### docs/
 | ファイル | 役割 |
