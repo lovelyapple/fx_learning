@@ -9,7 +9,14 @@
 
 | 機能 | ファイル | 依存先 | 状態 |
 |------|---------|--------|------|
-| (未実装) | | | |
+| 設定管理 | backend/app/core/__init__.py | .env | ✅ 実装済 |
+| 為替データ取得 | backend/app/services/fx_data_service.py | yfinance, db/candle_repository | ✅ 実装済 |
+| テクニカル指標計算 | backend/app/services/indicator_service.py | ta, models | ✅ 実装済 |
+| AI対話 | backend/app/services/ai_chat_service.py | httpx, core/config, models | ✅ 実装済 |
+| DB初期化 | backend/app/db/__init__.py | sqlite3 | ✅ 実装済 |
+| ローソク足永続化 | backend/app/db/candle_repository.py | db/__init__, models | ✅ 実装済 |
+| チャット履歴永続化 | backend/app/db/chat_repository.py | db/__init__, models | ✅ 実装済 |
+| APIルーティング | backend/app/api/__init__.py | services/*, db/* | ✅ 実装済 |
 
 ---
 
@@ -25,7 +32,13 @@
 
 | メソッド | パス | 機能 | ハンドラ | 状態 |
 |---------|------|------|---------|------|
-| (未実装) | | | | |
+| GET | /health | ヘルスチェック | app/main.py | ✅ |
+| GET | /api/chart | ローソク足+指標取得 | app/api/__init__.py | ✅ |
+| POST | /api/chat | AI対話 | app/api/__init__.py | ✅ |
+| GET | /api/chat/history | チャット履歴取得 | app/api/__init__.py | ✅ |
+| GET | /api/indicators | 利用可能指標一覧 | app/api/__init__.py | ✅ |
+| GET | /api/hypotheses | 仮説一覧取得 | app/api/__init__.py | ✅ |
+| POST | /api/hypotheses/{id}/resolve | 仮説結果記録 | app/api/__init__.py | ✅ |
 
 ---
 

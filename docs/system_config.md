@@ -22,9 +22,23 @@
 |---------|------|
 | .github/copilot-instructions.md | Copilotへの指示 |
 
-### backend/ (未作成)
+### backend/
 | ファイル | 役割 |
 |---------|------|
+| backend/requirements.txt | Python依存パッケージ |
+| backend/app/__init__.py | パッケージ定義 |
+| backend/app/main.py | FastAPIエントリポイント |
+| backend/app/core/__init__.py | 設定管理（Settings, get_settings） |
+| backend/app/api/__init__.py | APIルーティング |
+| backend/app/models/__init__.py | Pydanticデータモデル |
+| backend/app/services/__init__.py | サービスパッケージ |
+| backend/app/services/fx_data_service.py | 為替データ取得（yfinance + fallback） |
+| backend/app/services/indicator_service.py | テクニカル指標計算 |
+| backend/app/services/ai_chat_service.py | AI対話（GitHub Models API） |
+| backend/app/prompts/system_prompt.txt | AIシステムプロンプト |
+| backend/app/db/__init__.py | DB初期化・接続管理 |
+| backend/app/db/candle_repository.py | ローソク足データCRUD |
+| backend/app/db/chat_repository.py | チャット履歴・仮説CRUD |
 
 ### frontend/ (未作成)
 | ファイル | 役割 |
@@ -46,8 +60,13 @@
 | 定数名 | 値 | 用途 | 定義場所 |
 |--------|---|------|----------|
 | API_BASE_URL | 環境変数から取得 | バックエンドURL | frontend/src/config/ |
-| CANDLE_INTERVALS | 1m,5m,15m,1h,4h,1d | ローソク足間隔選択肢 | backend/app/core/config.py |
-| MAX_CHAT_HISTORY | 50 | AI会話の最大履歴数 | backend/app/core/config.py |
+| CANDLE_INTERVALS | 1m,5m,15m,1h,4h,1d | ローソク足間隔選択肢 | backend/app/core/__init__.py |
+| ALLOWED_PERIODS | 1d,5d,1mo,3mo,6mo,1y | データ期間選択肢 | backend/app/core/__init__.py |
+| ALLOWED_PAIRS | USDJPY=X,EURUSD=X,GBPJPY=X | 通貨ペア許可リスト | backend/app/core/__init__.py |
+| MAX_CHAT_HISTORY | 50 | AI会話の最大履歴数 | backend/app/core/__init__.py |
+| AI_CONTEXT_CANDLES | 80 | AIに渡す直近ローソク足数 | backend/app/core/__init__.py |
+| AI_TIMEOUT_SECONDS | 30 | AI API タイムアウト | backend/app/core/__init__.py |
+| DB_PATH | data/fx_learning.db | SQLiteファイル位置 | backend/app/db/__init__.py |
 
 ---
 

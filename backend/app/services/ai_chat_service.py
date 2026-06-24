@@ -1,0 +1,195 @@
+"""AI Chat service using GitHub Models API.
+
+Handles conversation with chart context injection.
+"""
+
+import httpx
+import json
+import logging
+from datetime import datetime
+
+from app.core import get_settings
+from app.models import (
+    CandleData,
+    IndicatorData,
+    ChatMessage,
+    ChatResponse,
+    HypothesisData,
+)
+
+logger = logging.getLogger(__name__)
+
+
+async def chat_with_ai(
+    message: str,
+    history: list[ChatMessage],
+    candles: list[CandleData],
+    indicators: list[IndicatorData],
+) -> ChatResponse:
+    """Send a message to AI with chart context.
+
+    Args:
+        message: User's message
+        history: Conversation history
+        candles: Recent candle data (backend-provided, not user-supplied)
+        indicators: Recent indicator data
+
+    Returns:
+        ChatResponse with message and optional hypothesis
+    """
+    settings = get_settings()
+
+    if not settings.github_token:
+        return ChatResponse(
+            message="GitHub Token が設定されていません。.env ファイルに GITHUB_TOKEN を設定してください。"
+        )
+
+    system_prompt = settings.load_system_prompt()
+    chart_context = _build_chart_context(candles, indicators)
+
+    messages = [
+        {"role": "system", "content": f"{system_prompt}\n\n## 現在のチャート状況\n{chart_context}"},
+    ]
+
+    # Add history (limited)
+    for msg in history[-settings.max_chat_history:]:
+        messages.append({"role": msg.role, "content": msg.content})
+
+    messages.append({"role": "user", "content": message})
+
+    try:
+        async with httpx.AsyncClient(timeout=settings.ai_timeout_seconds) as client:
+            response = await client.post(
+                f"{settings.github_models_endpoint}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {settings.github_token}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": settings.ai_model_name,
+                    "messages": messages,
+                    "max_tokens": settings.ai_max_tokens,
+                    "temperature": settings.ai_temperature,
+                },
+            )
+            response.raise_for_status()
+            data = response.json()
+
+    except httpx.TimeoutException:
+        return ChatResponse(message="AI応答がタイムアウトしました。もう一度お試しください。")
+    except httpx.HTTPStatusError as e:
+        logger.error(f"AI API error: {e.response.status_code}")
+        return ChatResponse(message="AI APIでエラーが発生しました。しばらく待ってから再試行してください。")
+    except Exception as e:
+        logger.error(f"Unexpected error in AI chat: {e}")
+        return ChatResponse(message="予期しないエラーが発生しました。")
+
+    ai_message = data["choices"][0]["message"]["content"]
+    hypothesis = _extract_hypothesis(ai_message)
+
+    return ChatResponse(message=ai_message, hypothesis=hypothesis)
+
+
+def _build_chart_context(
+    candles: list[CandleData],
+    indicators: list[IndicatorData],
+) -> str:
+    """Build a summary of chart data for AI context."""
+    if not candles:
+        return "チャートデータなし"
+
+    latest = candles[-1]
+    context_parts = [
+        f"通貨ペア: USD/JPY",
+        f"最新価格: {latest.close}",
+        f"最新時刻: {latest.timestamp.isoformat()}",
+        f"データ本数: {len(candles)}本",
+    ]
+
+    # Price range
+    highs = [c.high for c in candles]
+    lows = [c.low for c in candles]
+    context_parts.append(f"期間高値: {max(highs)}")
+    context_parts.append(f"期間安値: {min(lows)}")
+
+    # Latest indicators
+    if indicators:
+        latest_ind = indicators[-1]
+        ind_parts = []
+        if latest_ind.sma_20 is not None:
+            ind_parts.append(f"SMA20: {latest_ind.sma_20}")
+        if latest_ind.sma_50 is not None:
+            ind_parts.append(f"SMA50: {latest_ind.sma_50}")
+        if latest_ind.rsi is not None:
+            ind_parts.append(f"RSI: {latest_ind.rsi}")
+        if latest_ind.macd is not None:
+            ind_parts.append(f"MACD: {latest_ind.macd}")
+        if latest_ind.macd_signal is not None:
+            ind_parts.append(f"MACD Signal: {latest_ind.macd_signal}")
+        if latest_ind.bb_upper is not None:
+            ind_parts.append(f"BB上限: {latest_ind.bb_upper}")
+        if latest_ind.bb_lower is not None:
+            ind_parts.append(f"BB下限: {latest_ind.bb_lower}")
+
+        if ind_parts:
+            context_parts.append("テクニカル指標: " + ", ".join(ind_parts))
+
+        # Trend summary
+        if latest_ind.sma_20 and latest_ind.sma_50:
+            if latest_ind.sma_20 > latest_ind.sma_50:
+                context_parts.append("トレンド: 短期MA > 長期MA（上昇傾向）")
+            else:
+                context_parts.append("トレンド: 短期MA < 長期MA（下降傾向）")
+
+        if latest_ind.rsi:
+            if latest_ind.rsi > 70:
+                context_parts.append("RSI状態: 買われすぎ圏")
+            elif latest_ind.rsi < 30:
+                context_parts.append("RSI状態: 売られすぎ圏")
+
+    return "\n".join(context_parts)
+
+
+def _extract_hypothesis(ai_message: str) -> HypothesisData | None:
+    """Try to extract structured hypothesis from AI response."""
+    try:
+        # Look for JSON block in the response
+        json_start = ai_message.find("```json")
+        if json_start == -1:
+            json_start = ai_message.find("{")
+            if json_start == -1:
+                return None
+            json_end = ai_message.rfind("}") + 1
+        else:
+            json_start = ai_message.find("{", json_start)
+            json_end = ai_message.find("```", json_start)
+            if json_end == -1:
+                json_end = ai_message.rfind("}") + 1
+            else:
+                json_end = ai_message.rfind("}", json_start, json_end) + 1
+
+        if json_start == -1 or json_end <= json_start:
+            return None
+
+        json_str = ai_message[json_start:json_end]
+        data = json.loads(json_str)
+
+        # Validate required fields
+        if "direction" not in data or "base_price" not in data:
+            return None
+
+        return HypothesisData(
+            direction=data.get("direction", "sideways"),
+            confidence=data.get("confidence", "low"),
+            base_price=float(data["base_price"]),
+            entry_price=data.get("entry_price"),
+            target_price=data.get("target_price"),
+            stop_price=data.get("stop_price"),
+            horizon_candles=data.get("horizon_candles"),
+            invalidation_condition=data.get("invalidation_condition"),
+            reasoning=data.get("reasoning", ""),
+            indicators_used=data.get("indicators_used", []),
+        )
+    except (json.JSONDecodeError, ValueError, KeyError) as e:
+        logger.debug(f"Could not extract hypothesis: {e}")
+        return None
