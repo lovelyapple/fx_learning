@@ -42,9 +42,24 @@
 | backend/app/db/candle_repository.py | ローソク足データCRUD |
 | backend/app/db/chat_repository.py | チャット履歴・仮説CRUD |
 
-### frontend/ (未作成)
+### frontend/
 | ファイル | 役割 |
 |---------|------|
+| frontend/package.json | npm依存定義 |
+| frontend/tsconfig.json | TypeScript設定 |
+| frontend/vite.config.ts | Vite設定（プロキシ、エイリアス） |
+| frontend/index.html | HTMLエントリ |
+| frontend/src/main.tsx | Reactエントリポイント |
+| frontend/src/App.tsx | メインAppコンポーネント |
+| frontend/src/styles.css | グローバルスタイル |
+| frontend/src/config/index.ts | フロント設定（環境変数読み込み） |
+| frontend/src/types/index.ts | TypeScript型定義 |
+| frontend/src/services/api.ts | API通信層 |
+| frontend/src/components/CandlestickChart.tsx | ローソク足チャート |
+| frontend/src/components/ChatPanel.tsx | AIチャットUI |
+| frontend/src/components/ChartControls.tsx | 時間足・指標コントロール |
+| frontend/src/components/HypothesisPanel.tsx | 仮説表示パネル |
+| frontend/src/vite-env.d.ts | Vite型定義 |
 
 ---
 

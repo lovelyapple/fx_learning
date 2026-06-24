@@ -24,7 +24,14 @@
 
 | 機能 | ファイル | 依存先 | 状態 |
 |------|---------|--------|------|
-| (未実装) | | | |
+| ローソク足チャート表示 | src/components/CandlestickChart.tsx | lightweight-charts, types | ✅ 実装済 |
+| テクニカル指標オーバーレイ | src/components/CandlestickChart.tsx | lightweight-charts | ✅ 実装済 |
+| 仮説ライン描画 | src/components/CandlestickChart.tsx | lightweight-charts | ✅ 実装済 |
+| AIチャットUI | src/components/ChatPanel.tsx | services/api | ✅ 実装済 |
+| チャートコントロール | src/components/ChartControls.tsx | config | ✅ 実装済 |
+| 仮説表示パネル | src/components/HypothesisPanel.tsx | types | ✅ 実装済 |
+| API通信 | src/services/api.ts | config, types | ✅ 実装済 |
+| 設定管理 | src/config/index.ts | 環境変数 | ✅ 実装済 |
 
 ---
 
