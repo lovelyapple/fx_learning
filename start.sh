@@ -15,6 +15,14 @@ sleep 3
 python3 run_frontend.py &
 FRONTEND_PID=$!
 
+# Wait for frontend to initialize then open browser
+sleep 3
+if command -v open &> /dev/null; then
+  open http://localhost:5173
+elif command -v xdg-open &> /dev/null; then
+  xdg-open http://localhost:5173
+fi
+
 echo ""
 echo "Backend:  http://localhost:8000 (PID: $BACKEND_PID)"
 echo "Frontend: http://localhost:5173 (PID: $FRONTEND_PID)"

@@ -13,6 +13,10 @@ timeout /t 3 /nobreak > nul
 REM Start frontend in new window
 start "FX Frontend" cmd /c "cd /d %~dp0 && python run_frontend.py"
 
+REM Wait for frontend to initialize then open browser
+timeout /t 3 /nobreak > nul
+start http://localhost:5173
+
 echo.
 echo Backend:  http://localhost:8000
 echo Frontend: http://localhost:5173
