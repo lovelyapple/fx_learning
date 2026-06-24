@@ -54,6 +54,7 @@
 | 機能 | ファイル | 備考 |
 |------|---------|------|
 | セットアップ | setup.bat | Python/npm依存インストール |
+| 一括起動 | start.bat | Backend+Frontend同時起動 |
 
 ---
 
@@ -62,6 +63,7 @@
 | 機能 | ファイル | 備考 |
 |------|---------|------|
 | セットアップ | setup.sh | Python/npm依存インストール |
+| 一括起動 | start.sh | Backend+Frontend同時起動 |
 
 ---
 
