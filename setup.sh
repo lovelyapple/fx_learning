@@ -4,17 +4,23 @@
 
 set -e
 
-echo "[1/3] Installing backend dependencies..."
-cd backend
-pip3 install -r requirements.txt
-cd ..
+echo "[1/4] Creating Python virtual environment..."
+if [ ! -d .venv ]; then
+    python3 -m venv .venv
+    echo ".venv created."
+else
+    echo ".venv already exists, skipping."
+fi
 
-echo "[2/3] Installing frontend dependencies..."
+echo "[2/4] Installing backend dependencies into .venv..."
+.venv/bin/pip install -r backend/requirements.txt --quiet
+
+echo "[3/4] Installing frontend dependencies..."
 cd frontend
-npm install
+npm install --silent
 cd ..
 
-echo "[3/3] Creating .env from template (if not exists)..."
+echo "[4/4] Creating .env from template (if not exists)..."
 if [ ! -f .env ]; then
     cp .env.example .env
     echo ".env created. Please edit it to set your GITHUB_TOKEN."
@@ -24,4 +30,4 @@ fi
 
 echo ""
 echo "Setup complete!"
-echo "Next: Edit .env, then run: python3 run_backend.py"
+echo "Next: Edit .env to set GITHUB_TOKEN, then run: ./start.sh"

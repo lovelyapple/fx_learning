@@ -27,7 +27,8 @@
 ### backend/
 | ファイル | 役割 |
 |---------|------|
-| backend/requirements.txt | Python依存パッケージ |
+| .venv/ | Python仮想環境（git管理外） |
+| backend/requirements.txt | Python依存パッケージ（>= 形式・Python3.11+対応） |
 | backend/app/__init__.py | パッケージ定義 |
 | backend/app/main.py | FastAPIエントリポイント |
 | backend/app/core/__init__.py | 設定管理（Settings, get_settings） |
@@ -102,3 +103,4 @@
 | 日付 | 変更内容 |
 |------|---------|
 | 2026-06-24 | 初期作成。プロジェクト基盤ドキュメント |
+| 2026-06-30 | Python venv対応。requirements.txt を >=形式に更新。.venv/ 追加 |
