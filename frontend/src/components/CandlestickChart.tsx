@@ -44,7 +44,11 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
       height: config.chartHeight,
       layout: { background: { color: '#1a1a2e' }, textColor: '#d1d4dc' },
       grid: { vertLines: { color: '#2B2B43' }, horzLines: { color: '#2B2B43' } },
-      crosshair: { mode: 0 },
+      crosshair: {
+        mode: 0,
+        vertLine: { color: '#758696', width: 1, style: 1, labelBackgroundColor: '#2B2B43' },
+        horzLine: { color: '#758696', width: 1, style: 1, labelBackgroundColor: '#2B2B43' },
+      },
       timeScale: {
         timeVisible: true,
         secondsVisible: false,
@@ -202,13 +206,24 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     }
 
     const onMouseMove = (e: MouseEvent) => {
-      if (!dragging) return
-      const x = getX(e)
-      const w = Math.abs(x - startX)
-      if (w > 4) {
-        overlay.style.display = 'block'
-        overlay.style.left = `${Math.min(startX, x)}px`
-        overlay.style.width = `${w}px`
+      // ドラッグ中は選択オーバーレイを更新
+      if (dragging) {
+        const x = getX(e)
+        const w = Math.abs(x - startX)
+        if (w > 4) {
+          overlay.style.display = 'block'
+          overlay.style.left = `${Math.min(startX, x)}px`
+          overlay.style.width = `${w}px`
+        }
+      }
+      // 常にチャートcanvasにもmousemoveを転送（crosshair表示のため）
+      const canvas = chartContainerRef.current?.querySelector('canvas')
+      if (canvas) {
+        canvas.dispatchEvent(new MouseEvent('mousemove', {
+          bubbles: true, cancelable: true,
+          clientX: e.clientX, clientY: e.clientY,
+          buttons: e.buttons,
+        }))
       }
     }
 
