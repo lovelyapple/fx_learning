@@ -22,7 +22,7 @@ interface Props {
 /** AIメッセージ内の [足#N] / [C#N] をインラインボタンとしてレンダリング */
 function renderWithInlineLinks(
   content: string,
-  selectedCandles: CandleData[],
+  refSelectedTimestamps: string[] | undefined,
   refChartTimestamps: string[] | undefined,
   onClickSelected: (ts: string) => void,
   onClickChart: (ts: string) => void,
@@ -37,10 +37,9 @@ function renderWithInlineLinks(
     if (m.index > last) parts.push(<span key={key++}>{content.slice(last, m.index)}</span>)
 
     if (m[2] != null) {
-      // [足#N] → selectedCandles[N-1]
+      // [足#N] → refSelectedTimestamps[N-1] (snapshot at message time)
       const n = parseInt(m[2])
-      const candle = selectedCandles[n - 1]
-      const ts = candle ? String(candle.timestamp) : null
+      const ts = refSelectedTimestamps?.[n - 1] ?? null
       parts.push(
         <button
           key={key++}
@@ -72,7 +71,7 @@ function renderWithInlineLinks(
   return parts
 }
 
-export function ChatPanel({ pair, interval, selectedCandles, onHypothesis, messages, onMessagesChange, onHighlightCandles, onHighlightTimestamps, onFocusTimestamp }: Props) {
+export function ChatPanel({ pair, interval, selectedCandles, onHypothesis, messages, onMessagesChange, onHighlightTimestamps, onFocusTimestamp }: Props) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -81,13 +80,11 @@ export function ChatPanel({ pair, interval, selectedCandles, onHypothesis, messa
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // インラインリンク [足#N] のクリック: タイムスタンプベースでハイライト
   const handleInlineSelected = useCallback((ts: string) => {
-    const idx = selectedCandles.findIndex(c => String(c.timestamp) === ts)
-    if (idx >= 0) {
-      onHighlightCandles?.([idx + 1], 'selected')
-      onFocusTimestamp?.(ts)
-    }
-  }, [selectedCandles, onHighlightCandles, onFocusTimestamp])
+    onHighlightTimestamps?.([ts])
+    onFocusTimestamp?.(ts)
+  }, [onHighlightTimestamps, onFocusTimestamp])
 
   const handleInlineChart = useCallback((ts: string) => {
     onHighlightTimestamps?.([ts])
@@ -109,6 +106,9 @@ export function ChatPanel({ pair, interval, selectedCandles, onHypothesis, messa
         role: 'assistant',
         content: response.message,
         ref_candles: response.ref_candles ?? undefined,
+        ref_selected_timestamps: response.ref_candles
+          ? response.ref_candles.map(n => selectedCandles[n - 1]?.timestamp).filter(Boolean) as string[]
+          : undefined,
         ref_chart_timestamps: response.ref_chart_timestamps ?? undefined,
       }
       onMessagesChange(prev => [...prev, assistantMsg])
@@ -160,20 +160,20 @@ export function ChatPanel({ pair, interval, selectedCandles, onHypothesis, messa
               {msg.role === 'assistant'
                 ? renderWithInlineLinks(
                     msg.content,
-                    selectedCandles,
+                    msg.ref_selected_timestamps,
                     msg.ref_chart_timestamps,
                     handleInlineSelected,
                     handleInlineChart,
                   )
                 : msg.content}
             </div>
-            {msg.ref_candles && msg.ref_candles.length > 0 && (
+            {msg.ref_selected_timestamps && msg.ref_selected_timestamps.length > 0 && (
               <button
                 className="ref-candles-badge"
-                onClick={() => onHighlightCandles?.(msg.ref_candles!, 'selected')}
+                onClick={() => onHighlightTimestamps?.(msg.ref_selected_timestamps!)}
                 title="クリックしてチャート上でハイライト"
               >
-                📍 選択足 {msg.ref_candles.map(n => `#${n}`).join(', ')} をハイライト
+                📍 選択足 {msg.ref_candles?.map(n => `#${n}`).join(', ')} をハイライト
               </button>
             )}
             {msg.ref_chart_timestamps && msg.ref_chart_timestamps.length > 0 && (

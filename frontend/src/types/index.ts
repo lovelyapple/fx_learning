@@ -40,6 +40,7 @@ export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   ref_candles?: number[]
+  ref_selected_timestamps?: string[]  // snapshot of selected candle timestamps at message time
   ref_chart_timestamps?: string[]
 }
 
