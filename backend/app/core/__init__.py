@@ -35,8 +35,8 @@ class Settings(BaseSettings):
     allowed_pairs: list[str] = ["USDJPY=X", "EURUSD=X", "GBPJPY=X"]
     candle_intervals: list[str] = ["1m", "5m", "15m", "1h", "4h", "1d"]
     allowed_periods: list[str] = ["1d", "5d", "1mo", "3mo", "6mo", "1y"]
-    default_interval: str = "1h"
-    default_period: str = "5d"
+    default_interval: str = "1m"
+    default_period: str = "1d"
 
     # AI Context
     ai_context_candles: int = 80
