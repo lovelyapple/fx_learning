@@ -56,10 +56,10 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     })
 
     selectionSeriesRef.current = chart.addCandlestickSeries({
-      upColor: 'rgba(79,195,247,0.25)', downColor: 'rgba(79,195,247,0.25)',
+      upColor: 'rgba(255,235,59,0.35)', downColor: 'rgba(255,235,59,0.35)',
       borderVisible: true,
-      borderUpColor: '#4fc3f7', borderDownColor: '#4fc3f7',
-      wickUpColor: '#4fc3f7', wickDownColor: '#4fc3f7',
+      borderUpColor: '#ffeb3b', borderDownColor: '#ffeb3b',
+      wickUpColor: '#ffeb3b', wickDownColor: '#ffeb3b',
       lastValueVisible: false, priceLineVisible: false,
     })
 
@@ -145,12 +145,14 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
       const all = candlesRef.current
       if (!chart || !all.length) return []
       const l = Math.min(x1, x2), r = Math.max(x1, x2)
-      const t1 = chart.timeScale().coordinateToTime(l) as number | null
-      const t2 = chart.timeScale().coordinateToTime(r) as number | null
-      if (t1 == null || t2 == null) return []
+      let t1 = chart.timeScale().coordinateToTime(l) as number | null
+      let t2 = chart.timeScale().coordinateToTime(r) as number | null
+      // チャート端の外側はローソク足の先頭/末尾にクランプ
+      if (t1 == null) t1 = new Date(all[0].timestamp).getTime() / 1000
+      if (t2 == null) t2 = new Date(all[all.length - 1].timestamp).getTime() / 1000
       return all.filter(c => {
         const t = new Date(c.timestamp).getTime() / 1000
-        return t >= t1 && t <= t2
+        return t >= t1! && t <= t2!
       })
     }
 
