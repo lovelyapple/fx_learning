@@ -149,8 +149,11 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
   useEffect(() => {
     if (!rsiBodyRef.current) return
 
+    // rsiBodyRef は display:none の中にある可能性があるため幅をフォールバック
+    const width = rsiBodyRef.current.offsetWidth || chartContainerRef.current?.offsetWidth || 600
+
     const rsiChart = createChart(rsiBodyRef.current, {
-      width: rsiBodyRef.current.clientWidth,
+      width,
       height: config.rsiChartHeight,
       layout: { background: { color: '#1a1a2e' }, textColor: '#d1d4dc' },
       grid: { vertLines: { color: '#2B2B43' }, horzLines: { color: '#2B2B43' } },
@@ -160,7 +163,6 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
         horzLine: { color: '#758696', width: 1, style: 1, labelBackgroundColor: '#2B2B43' },
       },
       timeScale: { timeVisible: true, secondsVisible: false, visible: false },
-      rightPriceScale: {},
       handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
       handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: true },
     })
@@ -168,13 +170,15 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
 
     // Sync time scales: main → RSI
     chartRef.current?.timeScale().subscribeVisibleTimeRangeChange(() => {
-      const range = chartRef.current?.timeScale().getVisibleRange()
-      if (range) rsiChart.timeScale().setVisibleRange(range)
+      try {
+        const range = chartRef.current?.timeScale().getVisibleRange()
+        if (range) rsiChart.timeScale().setVisibleRange(range)
+      } catch {}
     })
 
     const handleResize = () => {
-      if (rsiBodyRef.current)
-        rsiChart.applyOptions({ width: rsiBodyRef.current.clientWidth })
+      const w = rsiBodyRef.current?.offsetWidth || chartContainerRef.current?.offsetWidth || 600
+      rsiChart.applyOptions({ width: w })
     }
     window.addEventListener('resize', handleResize)
 
@@ -265,6 +269,12 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
       rsiContainerRef.current.style.display = showRsi ? 'block' : 'none'
     }
     if (!showRsi || !indicators.length) return
+
+    // 表示状態になってから正しい幅を適用
+    if (rsiBodyRef.current) {
+      const w = chartContainerRef.current?.offsetWidth || 600
+      rsiChart.applyOptions({ width: w })
+    }
 
     const rsiData: LineData[] = indicators
       .filter(ind => ind.rsi !== null)
