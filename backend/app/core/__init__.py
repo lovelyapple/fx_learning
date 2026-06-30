@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     ai_temperature: float = 0.7
     ai_timeout_seconds: int = 30
 
+    # Twelve Data API (live price)
+    twelvedata_api_key: str = "demo"
+
     # FX Data
     default_pair: str = "USDJPY=X"
     allowed_pairs: list[str] = ["USDJPY=X", "EURUSD=X", "GBPJPY=X"]

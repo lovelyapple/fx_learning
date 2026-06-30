@@ -66,10 +66,28 @@ def fetch_candles(
 
 
 def fetch_live_price(pair: str) -> LivePriceResponse:
-    """Fetch current price using fast_info (lower latency than history).
+    """Fetch current price using Twelve Data API (real-time, low latency).
 
-    Falls back to last candle close if fast_info is unavailable.
+    Falls back to yfinance fast_info, then last DB candle close.
     """
+    settings = get_settings()
+    symbol = _pair_to_twelvedata_symbol(pair)
+
+    # Try Twelve Data first
+    try:
+        import httpx
+        r = httpx.get(
+            "https://api.twelvedata.com/price",
+            params={"symbol": symbol, "apikey": settings.twelvedata_api_key},
+            timeout=5,
+        )
+        data = r.json()
+        if r.status_code == 200 and "price" in data:
+            return LivePriceResponse(pair=pair, price=round(float(data["price"]), 3), fetched_at=datetime.now())
+    except Exception as e:
+        logger.warning(f"Twelve Data fetch failed: {e}")
+
+    # Fallback: yfinance fast_info
     try:
         ticker = yf.Ticker(pair)
         price = ticker.fast_info.last_price
@@ -78,13 +96,17 @@ def fetch_live_price(pair: str) -> LivePriceResponse:
     except Exception as e:
         logger.warning(f"fast_info fetch failed: {e}")
 
-    # fallback: last candle close from DB
+    # Last resort: last DB candle
     from app.db.candle_repository import load_candles
-    from app.core import get_settings
-    settings = get_settings()
     cached = load_candles(pair, settings.default_interval, limit=1)
     price = cached[-1].close if cached else 0.0
     return LivePriceResponse(pair=pair, price=price, fetched_at=datetime.now())
+
+
+def _pair_to_twelvedata_symbol(pair: str) -> str:
+    """Convert yfinance pair format to Twelve Data format (e.g. USDJPY=X → USD/JPY)."""
+    mapping = {"USDJPY=X": "USD/JPY", "EURUSD=X": "EUR/USD", "GBPJPY=X": "GBP/JPY"}
+    return mapping.get(pair, pair.replace("=X", "").replace("JPY", "/JPY").replace("USD", "USD/"))
 
 
 def _fetch_from_yfinance(pair: str, interval: str, period: str) -> list[CandleData]:
