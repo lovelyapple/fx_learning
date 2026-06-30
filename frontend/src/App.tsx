@@ -9,6 +9,7 @@ import { ChartControls } from '@/components/ChartControls'
 import { HypothesisPanel } from '@/components/HypothesisPanel'
 import { PatternLibrary } from '@/components/PatternLibrary'
 import { PatternSidebar } from '@/components/PatternSidebar'
+import { Glossary } from '@/components/Glossary'
 import { fetchChart, fetchLivePrice } from '@/services/api'
 import { config } from '@/config'
 import type { CandleData, IndicatorData, HypothesisData } from '@/types'
@@ -31,7 +32,7 @@ export default function App() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [livePrice, setLivePrice] = useState<number | null>(null)
   const [prevPrice, setPrevPrice] = useState<number | null>(null)
-  const [view, setView] = useState<'chart' | 'patterns'>('chart')
+  const [view, setView] = useState<'chart' | 'patterns' | 'glossary'>('chart')
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(
     () => localStorage.getItem(SIDEBAR_KEY) === 'true'
   )
@@ -116,6 +117,10 @@ export default function App() {
             className={`view-tab-btn ${view === 'patterns' ? 'active' : ''}`}
             onClick={() => setView('patterns')}
           >📚 パターン集</button>
+          <button
+            className={`view-tab-btn ${view === 'glossary' ? 'active' : ''}`}
+            onClick={() => setView('glossary')}
+          >📖 用語集</button>
         </div>
         {delayNote && <span className="delay-note">⚠️ {delayNote}</span>}
         {livePrice !== null && (
@@ -134,6 +139,10 @@ export default function App() {
       {view === 'patterns' ? (
         <div className="pattern-library-page">
           <PatternLibrary />
+        </div>
+      ) : view === 'glossary' ? (
+        <div className="pattern-library-page">
+          <Glossary />
         </div>
       ) : (
         <div className="app-layout" style={{ gridTemplateColumns: `${sidebarOpen ? '280px' : '40px'} 1fr 380px` }}>
