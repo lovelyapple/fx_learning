@@ -21,13 +21,17 @@ interface Props {
 export function CandlestickChart({ candles, indicators, hypothesis, visibleIndicators, onSelectionChange, onSingleCandleClick }: Props) {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const chartContainerRef = useRef<HTMLDivElement>(null)
+  const rsiContainerRef = useRef<HTMLDivElement>(null)
+  const rsiBodyRef = useRef<HTMLDivElement>(null)
   const captureRef = useRef<HTMLDivElement>(null)
   const selectionOverlayRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
+  const rsiChartRef = useRef<IChartApi | null>(null)
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
   const selectionSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
   const hoverSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
   const lineSeriesRefs = useRef<Map<string, ISeriesApi<'Line'>>>(new Map())
+  const rsiSeriesListRef = useRef<ISeriesApi<'Line'>[]>([])
 
   const selectedCandlesRef = useRef<CandleData[]>([])
   const selectedMarkersRef = useRef<SeriesMarker<Time>[]>([])
@@ -141,6 +145,46 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     }
   }, [])
 
+  // RSI sub-chart init
+  useEffect(() => {
+    if (!rsiBodyRef.current) return
+
+    const rsiChart = createChart(rsiBodyRef.current, {
+      width: rsiBodyRef.current.clientWidth,
+      height: config.rsiChartHeight,
+      layout: { background: { color: '#1a1a2e' }, textColor: '#d1d4dc' },
+      grid: { vertLines: { color: '#2B2B43' }, horzLines: { color: '#2B2B43' } },
+      crosshair: {
+        mode: 0,
+        vertLine: { color: '#758696', width: 1, style: 1, labelBackgroundColor: '#2B2B43' },
+        horzLine: { color: '#758696', width: 1, style: 1, labelBackgroundColor: '#2B2B43' },
+      },
+      timeScale: { timeVisible: true, secondsVisible: false, visible: false },
+      rightPriceScale: {},
+      handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
+      handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: true },
+    })
+    rsiChartRef.current = rsiChart
+
+    // Sync time scales: main → RSI
+    chartRef.current?.timeScale().subscribeVisibleTimeRangeChange(() => {
+      const range = chartRef.current?.timeScale().getVisibleRange()
+      if (range) rsiChart.timeScale().setVisibleRange(range)
+    })
+
+    const handleResize = () => {
+      if (rsiBodyRef.current)
+        rsiChart.applyOptions({ width: rsiBodyRef.current.clientWidth })
+    }
+    window.addEventListener('resize', handleResize)
+
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      rsiChart.remove()
+      rsiChartRef.current = null
+    }
+  }, [])
+
   // Candle data
   useEffect(() => {
     if (!candleSeriesRef.current || !candles.length) return
@@ -206,6 +250,44 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
       }
     }
   }, [indicators, visibleIndicators, hypothesis, candles])
+
+  // RSI sub-chart rendering
+  useEffect(() => {
+    const rsiChart = rsiChartRef.current
+    if (!rsiChart) return
+
+    // Clear previous RSI series
+    rsiSeriesListRef.current.forEach(s => { try { rsiChart.removeSeries(s) } catch {} })
+    rsiSeriesListRef.current = []
+
+    const showRsi = visibleIndicators.includes('rsi')
+    if (rsiContainerRef.current) {
+      rsiContainerRef.current.style.display = showRsi ? 'block' : 'none'
+    }
+    if (!showRsi || !indicators.length) return
+
+    const rsiData: LineData[] = indicators
+      .filter(ind => ind.rsi !== null)
+      .map(ind => ({ time: (new Date(ind.timestamp).getTime() / 1000) as any, value: ind.rsi as number }))
+    if (!rsiData.length) return
+
+    const rsiSeries = rsiChart.addLineSeries({ color: '#ce93d8', lineWidth: 2, title: 'RSI' })
+    rsiSeries.setData(rsiData)
+
+    // Overbought (70) line
+    const ob = rsiChart.addLineSeries({ color: 'rgba(244,67,54,0.6)', lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false })
+    ob.setData(rsiData.map(d => ({ time: d.time, value: 70 })))
+
+    // Oversold (30) line
+    const os = rsiChart.addLineSeries({ color: 'rgba(76,175,80,0.6)', lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false })
+    os.setData(rsiData.map(d => ({ time: d.time, value: 30 })))
+
+    rsiSeriesListRef.current = [rsiSeries, ob, os]
+
+    // Sync time range from main chart
+    const range = chartRef.current?.timeScale().getVisibleRange()
+    if (range) rsiChart.timeScale().setVisibleRange(range)
+  }, [indicators, visibleIndicators])
 
   // Drag selection via captureRef (transparent div on top of chart, z-index:2)
   useEffect(() => {
@@ -370,6 +452,12 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     <div ref={wrapperRef} style={{ width: '100%', position: 'relative' }}>
       {/* チャート本体 */}
       <div ref={chartContainerRef} />
+
+      {/* RSIサブチャート */}
+      <div ref={rsiContainerRef} style={{ display: 'none', borderTop: '1px solid #2B2B43' }}>
+        <div style={{ padding: '2px 8px', fontSize: '11px', color: '#888', background: '#1a1a2e' }}>RSI (14) — 過買い:70 / 過売り:30</div>
+        <div ref={rsiBodyRef} />
+      </div>
 
       {/* 透明キャプチャ層: チャートの上に重なりマウスイベントを最初に受け取る */}
       <div

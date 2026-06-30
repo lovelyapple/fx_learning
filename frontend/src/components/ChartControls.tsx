@@ -23,6 +23,7 @@ const INDICATOR_OPTIONS = [
   { id: 'bb_upper', label: 'BB Upper', color: '#607d8b' },
   { id: 'bb_middle', label: 'BB Mid', color: '#607d8b' },
   { id: 'bb_lower', label: 'BB Lower', color: '#607d8b' },
+  { id: 'rsi', label: 'RSI 14', color: '#ce93d8' },
 ]
 
 export function ChartControls({

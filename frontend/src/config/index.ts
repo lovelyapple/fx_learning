@@ -21,6 +21,7 @@ export const config = {
   // UI
   maxChatMessages: 100,
   chartHeight: 500,
+  rsiChartHeight: 120,
 
   // Auto-refresh
   autoRefreshIntervalMs: 30000,
