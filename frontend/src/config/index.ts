@@ -21,4 +21,7 @@ export const config = {
   // UI
   maxChatMessages: 100,
   chartHeight: 500,
+
+  // Auto-refresh
+  autoRefreshIntervalMs: 30000,
 } as const

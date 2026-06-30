@@ -22,6 +22,7 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [delayNote, setDelayNote] = useState('')
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
   const loadChart = useCallback(async () => {
     setLoading(true)
@@ -31,6 +32,7 @@ export default function App() {
       setCandles(data.candles)
       setIndicators(data.indicators)
       setDelayNote(data.delay_note)
+      setLastUpdated(new Date())
     } catch (err) {
       setError('チャートデータの取得に失敗しました。バックエンドが起動しているか確認してください。')
     } finally {
@@ -40,6 +42,8 @@ export default function App() {
 
   useEffect(() => {
     loadChart()
+    const timer = setInterval(loadChart, config.autoRefreshIntervalMs)
+    return () => clearInterval(timer)
   }, [loadChart])
 
   const handleToggleIndicator = (id: string) => {
@@ -60,6 +64,9 @@ export default function App() {
         <h1>📊 FX Learning App</h1>
         <span className="subtitle">AIと学ぶテクニカル分析</span>
         {delayNote && <span className="delay-note">⚠️ {delayNote}</span>}
+        {lastUpdated && (
+          <span className="last-updated">🔄 {lastUpdated.toLocaleTimeString('ja-JP')} 更新（30秒自動更新）</span>
+        )}
       </header>
 
       <div className="app-layout">

@@ -60,6 +60,11 @@ body {
   font-size: 0.75rem;
 }
 
+.app-header .last-updated {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+}
+
 .app-layout {
   display: grid;
   grid-template-columns: 1fr 380px;
