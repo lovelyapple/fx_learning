@@ -43,6 +43,14 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
       grid: { vertLines: { color: '#2B2B43' }, horzLines: { color: '#2B2B43' } },
       crosshair: { mode: 0 },
       timeScale: { timeVisible: true, secondsVisible: false },
+      localization: {
+        timeFormatter: (time: number) =>
+          new Date(time * 1000).toLocaleTimeString('ja-JP', {
+            timeZone: 'Asia/Tokyo',
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+      },
       handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
       handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: true },
     })
