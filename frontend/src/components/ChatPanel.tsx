@@ -52,7 +52,7 @@ export function ChatPanel({ pair, interval, selectedCandles, onHypothesis }: Pro
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && e.metaKey) {
       e.preventDefault()
       handleSend()
     }
@@ -99,8 +99,8 @@ export function ChatPanel({ pair, interval, selectedCandles, onHypothesis }: Pro
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={selectedCandles.length > 0
-            ? `${selectedCandles.length}本のローソク足について質問... (Enter で送信)`
-            : '質問を入力... (Enter で送信、Shift+Enter で改行)'}
+            ? `${selectedCandles.length}本のローソク足について質問... (⌘Enter で送信)`
+            : '質問を入力... (⌘Enter で送信、Enter で改行)'}
           disabled={loading}
           rows={2}
         />
