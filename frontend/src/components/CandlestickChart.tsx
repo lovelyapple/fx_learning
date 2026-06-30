@@ -276,10 +276,23 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
       const w = Math.abs(x - startX)
       overlay.style.display = 'none'
       if (w <= 4) {
-        // 単独クリック: ホバー中のローソク足を選択
-        const hovered = hoveredCandleRef.current
-        if (hovered) {
-          const t = (new Date(hovered.timestamp).getTime() / 1000) as any
+        // 単独クリック: coordinateToTimeでクリック位置のローソク足を特定
+        const chart = chartRef.current
+        const all = candlesRef.current
+        let candle: CandleData | null = null
+        if (chart && all.length) {
+          const ct = chart.timeScale().coordinateToTime(x) as number | null
+          if (ct != null) {
+            // 最も近いタイムスタンプのローソク足を選択
+            candle = all.reduce((best, c) => {
+              const bt = new Date(best.timestamp).getTime() / 1000
+              const nt = new Date(c.timestamp).getTime() / 1000
+              return Math.abs(nt - ct) < Math.abs(bt - ct) ? c : best
+            })
+          }
+        }
+        if (candle) {
+          const t = (new Date(candle.timestamp).getTime() / 1000) as any
           const markers: SeriesMarker<Time>[] = [{
             time: t as Time,
             position: 'aboveBar' as const,
@@ -289,13 +302,13 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
             size: 0,
           }]
           selectionSeriesRef.current?.setData([{
-            time: t, open: hovered.open, high: hovered.high, low: hovered.low, close: hovered.close,
+            time: t, open: candle.open, high: candle.high, low: candle.low, close: candle.close,
           }])
           candleSeriesRef.current?.setMarkers(markers)
-          selectedCandlesRef.current = [hovered]
+          selectedCandlesRef.current = [candle]
           selectedMarkersRef.current = markers
-          onSingleCandleClickRef.current?.(hovered)
-          onSelectionChangeRef.current?.([hovered])
+          onSingleCandleClickRef.current?.(candle)
+          onSelectionChangeRef.current?.([candle])
         } else {
           selectionSeriesRef.current?.setData([])
           candleSeriesRef.current?.setMarkers([])
