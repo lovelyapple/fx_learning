@@ -20,19 +20,19 @@ interface Props {
 export function CandlestickChart({ candles, indicators, hypothesis, visibleIndicators, onSelectionChange }: Props) {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const chartContainerRef = useRef<HTMLDivElement>(null)
+  const captureRef = useRef<HTMLDivElement>(null)
   const selectionOverlayRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
   const selectionSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
   const lineSeriesRefs = useRef<Map<string, ISeriesApi<'Line'>>>(new Map())
 
-  // Keep latest values accessible from native event handlers via refs
   const candlesRef = useRef<CandleData[]>([])
   const onSelectionChangeRef = useRef(onSelectionChange)
   useEffect(() => { candlesRef.current = candles }, [candles])
   useEffect(() => { onSelectionChangeRef.current = onSelectionChange }, [onSelectionChange])
 
-  // Initialize chart
+  // Chart init
   useEffect(() => {
     if (!chartContainerRef.current) return
 
@@ -43,37 +43,29 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
       grid: { vertLines: { color: '#2B2B43' }, horzLines: { color: '#2B2B43' } },
       crosshair: { mode: 0 },
       timeScale: { timeVisible: true, secondsVisible: false },
-      handleScroll: { mouseWheel: true, pressedMouseMove: false, horzTouchDrag: true, vertTouchDrag: false },
+      handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
       handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: true },
     })
 
     chartRef.current = chart
 
     candleSeriesRef.current = chart.addCandlestickSeries({
-      upColor: '#ef5350',
-      downColor: '#26a69a',
+      upColor: '#ef5350', downColor: '#26a69a',
       borderVisible: false,
-      wickUpColor: '#ef5350',
-      wickDownColor: '#26a69a',
+      wickUpColor: '#ef5350', wickDownColor: '#26a69a',
     })
 
-    // 選択ローソク足ハイライト用（シアン枠）
     selectionSeriesRef.current = chart.addCandlestickSeries({
-      upColor: 'rgba(79, 195, 247, 0.25)',
-      downColor: 'rgba(79, 195, 247, 0.25)',
+      upColor: 'rgba(79,195,247,0.25)', downColor: 'rgba(79,195,247,0.25)',
       borderVisible: true,
-      borderUpColor: '#4fc3f7',
-      borderDownColor: '#4fc3f7',
-      wickUpColor: '#4fc3f7',
-      wickDownColor: '#4fc3f7',
-      lastValueVisible: false,
-      priceLineVisible: false,
+      borderUpColor: '#4fc3f7', borderDownColor: '#4fc3f7',
+      wickUpColor: '#4fc3f7', wickDownColor: '#4fc3f7',
+      lastValueVisible: false, priceLineVisible: false,
     })
 
     const handleResize = () => {
-      if (chartContainerRef.current) {
+      if (chartContainerRef.current)
         chart.applyOptions({ width: chartContainerRef.current.clientWidth })
-      }
     }
     window.addEventListener('resize', handleResize)
 
@@ -87,20 +79,18 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     }
   }, [])
 
-  // Update candle data
+  // Candle data
   useEffect(() => {
     if (!candleSeriesRef.current || !candles.length) return
-    const chartData: CandlestickData[] = candles.map(c => ({
+    candleSeriesRef.current.setData(candles.map(c => ({
       time: (new Date(c.timestamp).getTime() / 1000) as any,
       open: c.open, high: c.high, low: c.low, close: c.close,
-    }))
-    candleSeriesRef.current.setData(chartData)
+    })))
   }, [candles])
 
-  // Update indicators
+  // Indicators + hypothesis lines
   useEffect(() => {
     if (!chartRef.current || !indicators.length) return
-
     lineSeriesRefs.current.forEach(s => chartRef.current?.removeSeries(s))
     lineSeriesRefs.current.clear()
 
@@ -113,7 +103,6 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
       bb_middle: { key: 'bb_middle', color: '#607d8b', title: 'BB Middle' },
       bb_lower:  { key: 'bb_lower',  color: '#607d8b', title: 'BB Lower' },
     }
-
     for (const id of visibleIndicators) {
       const cfg = indicatorConfigs[id]
       if (!cfg) continue
@@ -121,13 +110,12 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
         .filter(ind => ind[cfg.key] !== null)
         .map(ind => ({ time: (new Date(ind.timestamp).getTime() / 1000) as any, value: ind[cfg.key] as number }))
       if (!data.length) continue
-      const series = chartRef.current.addLineSeries({ color: cfg.color, lineWidth: 1, title: cfg.title })
-      series.setData(data)
-      lineSeriesRefs.current.set(id, series)
+      const s = chartRef.current.addLineSeries({ color: cfg.color, lineWidth: 1, title: cfg.title })
+      s.setData(data)
+      lineSeriesRefs.current.set(id, s)
     }
-
-    if (hypothesis) {
-      const lastTime = candles.length ? (new Date(candles[candles.length - 1].timestamp).getTime() / 1000) as any : 0
+    if (hypothesis && candles.length) {
+      const lastTime = (new Date(candles[candles.length - 1].timestamp).getTime() / 1000) as any
       if (hypothesis.target_price) {
         const s = chartRef.current.addLineSeries({ color: '#4caf50', lineWidth: 2, lineStyle: 2, title: `Target: ${hypothesis.target_price}` })
         s.setData([{ time: lastTime, value: hypothesis.target_price }])
@@ -141,40 +129,26 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     }
   }, [indicators, visibleIndicators, hypothesis, candles])
 
-  // Drag-selection: native capture-phase listeners (fire before chart canvas handlers)
+  // Drag selection via captureRef (transparent div on top of chart, z-index:2)
   useEffect(() => {
-    const wrapper = wrapperRef.current
+    const capture = captureRef.current
     const overlay = selectionOverlayRef.current
-    if (!wrapper || !overlay) return
+    if (!capture || !overlay) return
 
     let dragging = false
     let startX = 0
 
-    const getX = (e: MouseEvent) => {
-      const rect = wrapper.getBoundingClientRect()
-      return e.clientX - rect.left
-    }
-
-    const showOverlay = (left: number, width: number) => {
-      overlay.style.display = 'block'
-      overlay.style.left = `${left}px`
-      overlay.style.width = `${width}px`
-    }
-
-    const hideOverlay = () => {
-      overlay.style.display = 'none'
-    }
+    const getX = (e: MouseEvent) => e.clientX - capture.getBoundingClientRect().left
 
     const resolveSelected = (x1: number, x2: number): CandleData[] => {
       const chart = chartRef.current
-      const allCandles = candlesRef.current
-      if (!chart || !allCandles.length) return []
-      const left = Math.min(x1, x2)
-      const right = Math.max(x1, x2)
-      const t1 = chart.timeScale().coordinateToTime(left) as number | null
-      const t2 = chart.timeScale().coordinateToTime(right) as number | null
+      const all = candlesRef.current
+      if (!chart || !all.length) return []
+      const l = Math.min(x1, x2), r = Math.max(x1, x2)
+      const t1 = chart.timeScale().coordinateToTime(l) as number | null
+      const t2 = chart.timeScale().coordinateToTime(r) as number | null
       if (t1 == null || t2 == null) return []
-      return allCandles.filter(c => {
+      return all.filter(c => {
         const t = new Date(c.timestamp).getTime() / 1000
         return t >= t1 && t <= t2
       })
@@ -184,7 +158,7 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
       if (e.button !== 0) return
       dragging = true
       startX = getX(e)
-      hideOverlay()
+      overlay.style.display = 'none'
       selectionSeriesRef.current?.setData([])
       onSelectionChangeRef.current?.([])
     }
@@ -193,7 +167,11 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
       if (!dragging) return
       const x = getX(e)
       const w = Math.abs(x - startX)
-      if (w > 4) showOverlay(Math.min(startX, x), w)
+      if (w > 4) {
+        overlay.style.display = 'block'
+        overlay.style.left = `${Math.min(startX, x)}px`
+        overlay.style.width = `${w}px`
+      }
     }
 
     const onMouseUp = (e: MouseEvent) => {
@@ -201,8 +179,8 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
       dragging = false
       const x = getX(e)
       const w = Math.abs(x - startX)
+      overlay.style.display = 'none'
       if (w <= 4) {
-        hideOverlay()
         selectionSeriesRef.current?.setData([])
         onSelectionChangeRef.current?.([])
         return
@@ -217,31 +195,55 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
       onSelectionChangeRef.current?.(selected)
     }
 
-    wrapper.addEventListener('mousedown', onMouseDown, true)
-    window.addEventListener('mousemove', onMouseMove, true)
-    window.addEventListener('mouseup', onMouseUp, true)
+    // wheelイベントをチャートcanvasに転送（2本指スクロール・ズーム維持）
+    const onWheel = (e: WheelEvent) => {
+      const canvas = chartContainerRef.current?.querySelector('canvas')
+      if (!canvas) return
+      canvas.dispatchEvent(new WheelEvent('wheel', {
+        bubbles: true, cancelable: true,
+        deltaX: e.deltaX, deltaY: e.deltaY, deltaMode: e.deltaMode,
+        ctrlKey: e.ctrlKey, shiftKey: e.shiftKey, altKey: e.altKey,
+        clientX: e.clientX, clientY: e.clientY,
+      }))
+    }
+
+    capture.addEventListener('mousedown', onMouseDown)
+    capture.addEventListener('wheel', onWheel, { passive: true })
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
 
     return () => {
-      wrapper.removeEventListener('mousedown', onMouseDown, true)
-      window.removeEventListener('mousemove', onMouseMove, true)
-      window.removeEventListener('mouseup', onMouseUp, true)
+      capture.removeEventListener('mousedown', onMouseDown)
+      capture.removeEventListener('wheel', onWheel)
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
     }
   }, [])
 
   return (
-    <div ref={wrapperRef} style={{ width: '100%', position: 'relative', cursor: 'crosshair' }}>
+    <div ref={wrapperRef} style={{ width: '100%', position: 'relative' }}>
+      {/* チャート本体 */}
       <div ref={chartContainerRef} />
-      {/* ドラッグ中の選択範囲オーバーレイ */}
+
+      {/* 透明キャプチャ層: チャートの上に重なりマウスイベントを最初に受け取る */}
+      <div
+        ref={captureRef}
+        style={{
+          position: 'absolute', top: 0, left: 0,
+          width: '100%', height: config.chartHeight,
+          zIndex: 2, cursor: 'crosshair',
+        }}
+      />
+
+      {/* 選択範囲ハイライト */}
       <div
         ref={selectionOverlayRef}
         style={{
-          display: 'none',
-          position: 'absolute',
-          top: 0,
-          height: config.chartHeight,
-          background: 'rgba(79, 195, 247, 0.12)',
-          borderLeft: '2px solid rgba(79, 195, 247, 0.8)',
-          borderRight: '2px solid rgba(79, 195, 247, 0.8)',
+          display: 'none', position: 'absolute', top: 0,
+          height: config.chartHeight, zIndex: 3,
+          background: 'rgba(79,195,247,0.12)',
+          borderLeft: '2px solid rgba(79,195,247,0.8)',
+          borderRight: '2px solid rgba(79,195,247,0.8)',
           pointerEvents: 'none',
         }}
       />
