@@ -42,7 +42,16 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
       layout: { background: { color: '#1a1a2e' }, textColor: '#d1d4dc' },
       grid: { vertLines: { color: '#2B2B43' }, horzLines: { color: '#2B2B43' } },
       crosshair: { mode: 0 },
-      timeScale: { timeVisible: true, secondsVisible: false },
+      timeScale: {
+        timeVisible: true,
+        secondsVisible: false,
+        tickMarkFormatter: (time: number) =>
+          new Date(time * 1000).toLocaleTimeString('ja-JP', {
+            timeZone: 'Asia/Tokyo',
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+      },
       localization: {
         timeFormatter: (time: number) =>
           new Date(time * 1000).toLocaleTimeString('ja-JP', {
