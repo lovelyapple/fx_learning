@@ -62,8 +62,10 @@
 
 | 機能 | ファイル | 備考 |
 |------|---------|------|
-| セットアップ | setup.sh | Python/npm依存インストール |
-| 一括起動 | start.sh | Backend+Frontend同時起動 |
+| セットアップ | setup.sh | Python/npm依存インストール（CLI用） |
+| 一括起動 | start.sh | Backend+Frontend同時起動（CLI用） |
+| セットアップ（Mac GUI） | mac/setup.command | Finderダブルクリック対応 |
+| 一括起動（Mac GUI） | mac/start.command | Finderダブルクリック対応 |
 
 ---
 

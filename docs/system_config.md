@@ -24,7 +24,11 @@
 |---------|------|
 | .github/copilot-instructions.md | Copilotへの指示 |
 
-### backend/
+### mac/
+| ファイル | 役割 |
+|---------|------|
+| mac/setup.command | Macセットアップ（Finderダブルクリック対応） |
+| mac/start.command | Mac起動スクリプト（Finderダブルクリック対応） |
 | ファイル | 役割 |
 |---------|------|
 | .venv/ | Python仮想環境（git管理外） |
@@ -104,3 +108,4 @@
 |------|---------|
 | 2026-06-24 | 初期作成。プロジェクト基盤ドキュメント |
 | 2026-06-30 | Python venv対応。requirements.txt を >=形式に更新。.venv/ 追加 |
+| 2026-06-30 | mac/ フォルダ追加。setup.command / start.command 追加 |
