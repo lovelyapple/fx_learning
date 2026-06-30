@@ -102,10 +102,12 @@ def _build_chart_context(
         return "チャートデータなし"
 
     latest = candles[-1]
+    # 選択足がある場合はその足を基準価格として使う
+    reference = selected_candles[-1] if selected_candles else latest
     context_parts = [
         f"通貨ペア: USD/JPY",
-        f"最新価格: {latest.close}",
-        f"最新時刻: {latest.timestamp.isoformat()}",
+        f"最新価格: {latest.close}（最新足: {latest.timestamp.isoformat()}）",
+        f"基準価格（仮説の基点）: {reference.close}（{reference.timestamp.isoformat()}）",
         f"データ本数: {len(candles)}本",
     ]
 
@@ -177,6 +179,7 @@ def _build_selected_context(selected_candles: list[CandleData]) -> str:
         f"期間高値: {max(highs)}　期間安値: {min(lows)}",
         f"変動幅: {net_change} ({net_pct}%)",
         f"陽線: {up_count}本　陰線: {down_count}本",
+        f"※ 仮説を立てる場合はこの選択足の終値 {last.close} を base_price として使うこと。最新足の価格ではない。",
         "OHLC一覧:",
     ]
     for i, c in enumerate(selected_candles, 1):
