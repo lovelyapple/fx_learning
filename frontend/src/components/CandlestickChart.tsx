@@ -27,6 +27,9 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
   const selectionSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
   const lineSeriesRefs = useRef<Map<string, ISeriesApi<'Line'>>>(new Map())
 
+  const selectedCandlesRef = useRef<CandleData[]>([])
+  const selectedMarkersRef = useRef<SeriesMarker<Time>[]>([])
+
   const candlesRef = useRef<CandleData[]>([])
   const onSelectionChangeRef = useRef(onSelectionChange)
   useEffect(() => { candlesRef.current = candles }, [candles])
@@ -99,13 +102,26 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
   // Candle data
   useEffect(() => {
     if (!candleSeriesRef.current || !candles.length) return
+    // 現在のvisible rangeを保存してピクッを防ぐ
+    const visibleRange = chartRef.current?.timeScale().getVisibleLogicalRange()
     candleSeriesRef.current.setData(candles.map(c => ({
       time: (new Date(c.timestamp).getTime() / 1000) as any,
       open: c.open, high: c.high, low: c.low, close: c.close,
     })))
-    // チャート更新時に番号マーカーをクリア
-    candleSeriesRef.current.setMarkers([])
-    selectionSeriesRef.current?.setData([])
+    // 選択状態を再適用（解除しない）
+    if (selectedMarkersRef.current.length) {
+      candleSeriesRef.current.setMarkers(selectedMarkersRef.current)
+    }
+    if (selectionSeriesRef.current && selectedCandlesRef.current.length) {
+      selectionSeriesRef.current.setData(selectedCandlesRef.current.map(c => ({
+        time: (new Date(c.timestamp).getTime() / 1000) as any,
+        open: c.open, high: c.high, low: c.low, close: c.close,
+      })))
+    }
+    // visible rangeを復元
+    if (visibleRange) {
+      chartRef.current?.timeScale().setVisibleLogicalRange(visibleRange)
+    }
   }, [candles])
 
   // Indicators + hypothesis lines
@@ -205,6 +221,8 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
       if (w <= 4) {
         selectionSeriesRef.current?.setData([])
         candleSeriesRef.current?.setMarkers([])
+        selectedCandlesRef.current = []
+        selectedMarkersRef.current = []
         onSelectionChangeRef.current?.([])
         return
       }
@@ -214,7 +232,7 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
           time: (new Date(c.timestamp).getTime() / 1000) as any,
           open: c.open, high: c.high, low: c.low, close: c.close,
         })))
-        // 番号マーカーを設定
+        // 番号マーカーを設定・保存
         const markers: SeriesMarker<Time>[] = selected.map((c, i) => ({
           time: (new Date(c.timestamp).getTime() / 1000) as Time,
           position: 'aboveBar' as const,
@@ -224,6 +242,8 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
           size: 0,
         }))
         candleSeriesRef.current?.setMarkers(markers)
+        selectedCandlesRef.current = selected
+        selectedMarkersRef.current = markers
       }
       onSelectionChangeRef.current?.(selected)
     }
