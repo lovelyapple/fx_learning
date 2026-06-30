@@ -24,4 +24,5 @@ export const config = {
 
   // Auto-refresh
   autoRefreshIntervalMs: 30000,
+  livePriceIntervalMs: 10000,
 } as const

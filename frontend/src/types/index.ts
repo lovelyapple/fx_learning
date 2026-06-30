@@ -61,6 +61,12 @@ export interface ChatResponse {
   disclaimer: string
 }
 
+export interface LivePriceResponse {
+  pair: string
+  price: number
+  fetched_at: string
+}
+
 export interface IndicatorInfo {
   id: string
   name: string

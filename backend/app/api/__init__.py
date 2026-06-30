@@ -2,8 +2,8 @@
 
 from fastapi import APIRouter, Query
 from app.core import get_settings
-from app.models import ChartResponse, ChatRequest, ChatResponse
-from app.services.fx_data_service import fetch_candles
+from app.models import ChartResponse, ChatRequest, ChatResponse, LivePriceResponse
+from app.services.fx_data_service import fetch_candles, fetch_live_price
 from app.services.indicator_service import calculate_indicators
 from app.services.ai_chat_service import chat_with_ai
 from app.db.chat_repository import (
@@ -116,3 +116,11 @@ async def get_available_indicators():
             {"id": "macd", "name": "MACD", "category": "momentum", "description": "移動平均収束拡散法"},
         ]
     }
+
+
+@router.get("/price", response_model=LivePriceResponse)
+async def get_live_price(pair: str = Query(default="")):
+    """Get live price using fast_info (lower latency than candle API)."""
+    settings = get_settings()
+    pair = settings.validate_pair(pair) if pair else settings.default_pair
+    return fetch_live_price(pair)

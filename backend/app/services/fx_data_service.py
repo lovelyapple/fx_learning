@@ -12,6 +12,7 @@ import logging
 
 from app.core import get_settings
 from app.models import CandleData
+from app.models import LivePriceResponse
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,28 @@ def fetch_candles(
     save_candles(pair, interval, sample)
 
     return sample
+
+
+def fetch_live_price(pair: str) -> LivePriceResponse:
+    """Fetch current price using fast_info (lower latency than history).
+
+    Falls back to last candle close if fast_info is unavailable.
+    """
+    try:
+        ticker = yf.Ticker(pair)
+        price = ticker.fast_info.last_price
+        if price and price > 0:
+            return LivePriceResponse(pair=pair, price=round(price, 3), fetched_at=datetime.now())
+    except Exception as e:
+        logger.warning(f"fast_info fetch failed: {e}")
+
+    # fallback: last candle close from DB
+    from app.db.candle_repository import load_candles
+    from app.core import get_settings
+    settings = get_settings()
+    cached = load_candles(pair, settings.default_interval, limit=1)
+    price = cached[-1].close if cached else 0.0
+    return LivePriceResponse(pair=pair, price=price, fetched_at=datetime.now())
 
 
 def _fetch_from_yfinance(pair: str, interval: str, period: str) -> list[CandleData]:

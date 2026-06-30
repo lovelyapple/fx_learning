@@ -4,7 +4,7 @@
  */
 
 import { config } from '@/config'
-import type { ChartResponse, ChatMessage, ChatResponse, IndicatorInfo, CandleData } from '@/types'
+import type { ChartResponse, ChatMessage, ChatResponse, IndicatorInfo, CandleData, LivePriceResponse } from '@/types'
 
 const API_PREFIX = '/api'
 
@@ -72,6 +72,12 @@ export async function resolveHypothesis(id: number, outcome: string): Promise<vo
   await fetchJson(`${API_PREFIX}/hypotheses/${id}/resolve?outcome=${outcome}`, {
     method: 'POST',
   })
+}
+
+/** Get live price (fast_info) */
+export async function fetchLivePrice(pair?: string): Promise<LivePriceResponse> {
+  const params = pair ? `?pair=${encodeURIComponent(pair)}` : ''
+  return fetchJson<LivePriceResponse>(`${API_PREFIX}/price${params}`)
 }
 
 // Re-export type for convenience

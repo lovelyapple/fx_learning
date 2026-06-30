@@ -65,6 +65,21 @@ body {
   font-size: 0.75rem;
 }
 
+.app-header .live-price {
+  font-size: 1.1rem;
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  padding: 2px 10px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  transition: color 0.3s;
+}
+.app-header .live-price.up { color: #ef5350; }
+.app-header .live-price.down { color: #26a69a; }
+.app-header .live-price .price-change { font-size: 0.8rem; }
+
 .app-layout {
   display: grid;
   grid-template-columns: 1fr 380px;

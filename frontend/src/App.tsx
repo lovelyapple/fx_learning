@@ -7,7 +7,7 @@ import { CandlestickChart } from '@/components/CandlestickChart'
 import { ChatPanel } from '@/components/ChatPanel'
 import { ChartControls } from '@/components/ChartControls'
 import { HypothesisPanel } from '@/components/HypothesisPanel'
-import { fetchChart } from '@/services/api'
+import { fetchChart, fetchLivePrice } from '@/services/api'
 import { config } from '@/config'
 import type { CandleData, IndicatorData, HypothesisData } from '@/types'
 
@@ -24,7 +24,8 @@ export default function App() {
   const [error, setError] = useState<string | null>(null)
   const [delayNote, setDelayNote] = useState('')
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
-
+  const [livePrice, setLivePrice] = useState<number | null>(null)
+  const [prevPrice, setPrevPrice] = useState<number | null>(null)
   const loadChart = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -47,6 +48,19 @@ export default function App() {
     return () => clearInterval(timer)
   }, [loadChart])
 
+  // Live price: 10秒ごとに更新
+  useEffect(() => {
+    const loadPrice = async () => {
+      try {
+        const res = await fetchLivePrice(pair)
+        setLivePrice(prev => { setPrevPrice(prev); return res.price })
+      } catch { /* silent */ }
+    }
+    loadPrice()
+    const timer = setInterval(loadPrice, config.livePriceIntervalMs)
+    return () => clearInterval(timer)
+  }, [pair])
+
   const handleToggleIndicator = (id: string) => {
     setVisibleIndicators(prev =>
       prev.includes(id)
@@ -65,6 +79,14 @@ export default function App() {
         <h1>📊 FX Learning App</h1>
         <span className="subtitle">AIと学ぶテクニカル分析</span>
         {delayNote && <span className="delay-note">⚠️ {delayNote}</span>}
+        {livePrice !== null && (
+          <span className={`live-price ${prevPrice !== null && livePrice > prevPrice ? 'up' : prevPrice !== null && livePrice < prevPrice ? 'down' : ''}`}>
+            ● {livePrice.toFixed(3)}
+            {prevPrice !== null && livePrice !== prevPrice && (
+              <span className="price-change">{livePrice > prevPrice ? ' ▲' : ' ▼'}</span>
+            )}
+          </span>
+        )}
         {lastUpdated && (
           <span className="last-updated">🔄 {lastUpdated.toLocaleTimeString('ja-JP')} 更新（30秒自動更新）</span>
         )}

@@ -81,3 +81,10 @@ class ChatResponse(BaseModel):
     message: str
     hypothesis: HypothesisData | None = None
     disclaimer: str = "これは学習用シナリオであり、投資助言ではありません。"
+
+
+class LivePriceResponse(BaseModel):
+    """Live price response using fast_info."""
+    pair: str
+    price: float
+    fetched_at: datetime
