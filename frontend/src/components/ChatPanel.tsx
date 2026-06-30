@@ -14,9 +14,10 @@ interface Props {
   onHypothesis: (h: HypothesisData) => void
   messages: ChatMessage[]
   onMessagesChange: (updater: (prev: ChatMessage[]) => ChatMessage[]) => void
+  onHighlightCandles?: (indices: number[]) => void
 }
 
-export function ChatPanel({ pair, interval, selectedCandles, onHypothesis, messages, onMessagesChange }: Props) {
+export function ChatPanel({ pair, interval, selectedCandles, onHypothesis, messages, onMessagesChange, onHighlightCandles }: Props) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -36,7 +37,11 @@ export function ChatPanel({ pair, interval, selectedCandles, onHypothesis, messa
 
     try {
       const response = await sendChatMessage(text, messages, pair, interval, selectedCandles)
-      const assistantMsg: ChatMessage = { role: 'assistant', content: response.message }
+      const assistantMsg: ChatMessage = {
+        role: 'assistant',
+        content: response.message,
+        ref_candles: response.ref_candles ?? undefined,
+      }
       onMessagesChange(prev => [...prev, assistantMsg])
 
       if (response.hypothesis) {
@@ -85,6 +90,15 @@ export function ChatPanel({ pair, interval, selectedCandles, onHypothesis, messa
             <div className="chat-message-content">
               {msg.content}
             </div>
+            {msg.ref_candles && msg.ref_candles.length > 0 && (
+              <button
+                className="ref-candles-badge"
+                onClick={() => onHighlightCandles?.(msg.ref_candles!)}
+                title="クリックしてチャート上でハイライト"
+              >
+                📍 足 {msg.ref_candles.map(n => `#${n}`).join(', ')} をハイライト
+              </button>
+            )}
           </div>
         ))}
         {loading && (

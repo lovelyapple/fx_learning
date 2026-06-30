@@ -6,6 +6,7 @@ Handles conversation with chart context injection.
 import httpx
 import json
 import logging
+import re
 from datetime import datetime
 
 from app.core import get_settings
@@ -87,9 +88,11 @@ async def chat_with_ai(
         return ChatResponse(message="予期しないエラーが発生しました。")
 
     ai_message = data["choices"][0]["message"]["content"]
-    hypothesis = _extract_hypothesis(ai_message)
+    ref_candles = _extract_ref_candles(ai_message)
+    clean_message = _strip_ref_candles(ai_message)
+    hypothesis = _extract_hypothesis(clean_message)
 
-    return ChatResponse(message=ai_message, hypothesis=hypothesis)
+    return ChatResponse(message=clean_message, hypothesis=hypothesis, ref_candles=ref_candles)
 
 
 def _build_chart_context(
@@ -232,3 +235,17 @@ def _extract_hypothesis(ai_message: str) -> HypothesisData | None:
     except (json.JSONDecodeError, ValueError, KeyError) as e:
         logger.debug(f"Could not extract hypothesis: {e}")
         return None
+
+
+def _extract_ref_candles(ai_message: str) -> list[int] | None:
+    """Extract referenced candle numbers from <!-- ref_candles:[1,2] --> marker."""
+    match = re.search(r'<!--\s*ref_candles:\s*\[([^\]]*)\]\s*-->', ai_message)
+    if not match:
+        return None
+    nums = [int(n.strip()) for n in match.group(1).split(',') if n.strip().isdigit()]
+    return nums if nums else None
+
+
+def _strip_ref_candles(ai_message: str) -> str:
+    """Remove the ref_candles marker from the message for clean display."""
+    return re.sub(r'\s*<!--\s*ref_candles:\s*\[[^\]]*\]\s*-->', '', ai_message).strip()

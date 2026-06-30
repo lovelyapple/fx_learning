@@ -329,6 +329,23 @@ body {
   font-style: italic;
 }
 
+.ref-candles-badge {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 3px 10px;
+  background: rgba(255, 152, 0, 0.15);
+  border: 1px solid rgba(255, 152, 0, 0.5);
+  border-radius: 12px;
+  color: #ff9800;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.ref-candles-badge:hover {
+  background: rgba(255, 152, 0, 0.3);
+}
+
 .chat-input-area {
   display: flex;
   gap: 8px;

@@ -39,6 +39,7 @@ export interface ChartResponse {
 export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
+  ref_candles?: number[]
 }
 
 export interface HypothesisData {
@@ -58,6 +59,7 @@ export interface HypothesisData {
 export interface ChatResponse {
   message: string
   hypothesis: HypothesisData | null
+  ref_candles: number[] | null
   disclaimer: string
 }
 

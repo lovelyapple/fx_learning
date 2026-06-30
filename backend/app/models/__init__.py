@@ -80,6 +80,7 @@ class ChatResponse(BaseModel):
     """Chat response from AI."""
     message: str
     hypothesis: HypothesisData | None = None
+    ref_candles: list[int] | None = None
     disclaimer: str = "これは学習用シナリオであり、投資助言ではありません。"
 
 

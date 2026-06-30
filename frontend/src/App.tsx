@@ -37,6 +37,11 @@ export default function App() {
     () => localStorage.getItem(SIDEBAR_KEY) === 'true'
   )
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [refHighlightIndices, setRefHighlightIndices] = useState<number[]>([])
+
+  const handleHighlightCandles = useCallback((indices: number[]) => {
+    setRefHighlightIndices(indices)
+  }, [])
 
   const toggleSidebar = () => {
     setSidebarOpen(prev => {
@@ -175,6 +180,8 @@ export default function App() {
               visibleIndicators={visibleIndicators}
               onSelectionChange={handleSelectionChange}
               onSingleCandleClick={handleSingleCandleClick}
+              refHighlightIndices={refHighlightIndices}
+              selectedCandles={selectedCandles}
             />
 
             <HypothesisPanel hypothesis={hypothesis} />
@@ -188,6 +195,7 @@ export default function App() {
               onHypothesis={handleHypothesis}
               messages={chatMessages}
               onMessagesChange={setChatMessages}
+              onHighlightCandles={handleHighlightCandles}
             />
           </div>
         </div>

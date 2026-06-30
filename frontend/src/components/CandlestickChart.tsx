@@ -14,11 +14,13 @@ interface Props {
   indicators: IndicatorData[]
   hypothesis: HypothesisData | null
   visibleIndicators: string[]
+  selectedCandles?: CandleData[]
+  refHighlightIndices?: number[]
   onSelectionChange?: (selected: CandleData[]) => void
   onSingleCandleClick?: (candle: CandleData | null) => void
 }
 
-export function CandlestickChart({ candles, indicators, hypothesis, visibleIndicators, onSelectionChange, onSingleCandleClick }: Props) {
+export function CandlestickChart({ candles, indicators, hypothesis, visibleIndicators, selectedCandles, refHighlightIndices, onSelectionChange, onSingleCandleClick }: Props) {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const rsiContainerRef = useRef<HTMLDivElement>(null)
@@ -32,6 +34,7 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
   const hoverSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
   const lineSeriesRefs = useRef<Map<string, ISeriesApi<'Line'>>>(new Map())
   const rsiSeriesListRef = useRef<ISeriesApi<'Line'>[]>([])
+  const refSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
 
   const selectedCandlesRef = useRef<CandleData[]>([])
   const selectedMarkersRef = useRef<SeriesMarker<Time>[]>([])
@@ -105,6 +108,15 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
       lastValueVisible: false, priceLineVisible: false,
     })
 
+    // AIハイライト（オレンジ）
+    refSeriesRef.current = chart.addCandlestickSeries({
+      upColor: 'rgba(255,152,0,0.5)', downColor: 'rgba(255,152,0,0.5)',
+      borderVisible: true,
+      borderUpColor: '#ff9800', borderDownColor: '#ff9800',
+      wickUpColor: '#ff9800', wickDownColor: '#ff9800',
+      lastValueVisible: false, priceLineVisible: false,
+    })
+
     // crosshairが動いたときにホバーしているローソク足を追跡
     chart.subscribeCrosshairMove((param) => {
       const all = candlesRef.current
@@ -141,6 +153,7 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
       candleSeriesRef.current = null
       selectionSeriesRef.current = null
       hoverSeriesRef.current = null
+      refSeriesRef.current = null
       lineSeriesRefs.current.clear()
     }
   }, [])
@@ -254,6 +267,23 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
       }
     }
   }, [indicators, visibleIndicators, hypothesis, candles])
+
+  // AI referenced candles highlight (orange)
+  useEffect(() => {
+    if (!refSeriesRef.current) return
+    if (!refHighlightIndices || refHighlightIndices.length === 0 || !selectedCandles || !selectedCandles.length) {
+      refSeriesRef.current.setData([])
+      return
+    }
+    const refData = refHighlightIndices
+      .map(idx => selectedCandles[idx - 1])
+      .filter(Boolean)
+      .map(c => ({
+        time: (new Date(c.timestamp).getTime() / 1000) as any,
+        open: c.open, high: c.high, low: c.low, close: c.close,
+      }))
+    refSeriesRef.current.setData(refData)
+  }, [refHighlightIndices, selectedCandles])
 
   // RSI sub-chart rendering
   useEffect(() => {
