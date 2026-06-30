@@ -145,8 +145,16 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     }
     window.addEventListener('resize', handleResize)
 
+    // ResizeObserver でサイドバー開閉など親要素のサイズ変化を検知
+    const ro = new ResizeObserver(() => {
+      if (chartContainerRef.current)
+        chart.applyOptions({ width: chartContainerRef.current.clientWidth })
+    })
+    if (chartContainerRef.current) ro.observe(chartContainerRef.current)
+
     return () => {
       window.removeEventListener('resize', handleResize)
+      ro.disconnect()
       chart.remove()
       chartRef.current = null
       candleSeriesRef.current = null
@@ -193,8 +201,15 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     }
     window.addEventListener('resize', handleResize)
 
+    const roRsi = new ResizeObserver(() => {
+      const w = rsiBodyRef.current?.offsetWidth || chartContainerRef.current?.offsetWidth || 600
+      rsiChart.applyOptions({ width: w })
+    })
+    if (rsiBodyRef.current) roRsi.observe(rsiBodyRef.current)
+
     return () => {
       window.removeEventListener('resize', handleResize)
+      roRsi.disconnect()
       rsiChart.remove()
       rsiChartRef.current = null
     }
@@ -266,53 +281,50 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     }
   }, [indicators, visibleIndicators, hypothesis, candles])
 
-  // AI referenced candles highlight — orange arrow markers (selected-based)
+  // AI referenced candles highlight — merge both index and timestamp sources
   useEffect(() => {
     if (!candleSeriesRef.current) return
-    if (!refHighlightIndices || refHighlightIndices.length === 0 || !selectedCandles || !selectedCandles.length) {
-      if (!refHighlightTimestamps?.length) {
-        refMarkersRef.current = []
-        syncMarkers()
-      }
-      return
-    }
-    const markers: SeriesMarker<Time>[] = refHighlightIndices
-      .map(idx => selectedCandles[idx - 1])
-      .filter(Boolean)
-      .map(c => ({
-        time: (new Date(c.timestamp).getTime() / 1000) as Time,
-        position: 'belowBar' as const,
-        color: '#ff9800',
-        shape: 'arrowUp' as const,
-        text: `AI`,
-        size: 1,
-      }))
-    refMarkersRef.current = markers
-    syncMarkers()
-  }, [refHighlightIndices, selectedCandles])
 
-  // AI referenced candles highlight — timestamp-based (DB search results)
-  useEffect(() => {
-    if (!candleSeriesRef.current) return
-    if (!refHighlightTimestamps || refHighlightTimestamps.length === 0) {
-      refMarkersRef.current = []
+    // timestamp-based (DB search results)
+    if (refHighlightTimestamps && refHighlightTimestamps.length > 0) {
+      const tsSet = new Set(refHighlightTimestamps.map(ts => new Date(ts).getTime()))
+      const markers: SeriesMarker<Time>[] = candles
+        .filter(c => tsSet.has(new Date(c.timestamp).getTime()))
+        .map(c => ({
+          time: (new Date(c.timestamp).getTime() / 1000) as Time,
+          position: 'belowBar' as const,
+          color: '#2196f3',
+          shape: 'arrowUp' as const,
+          text: 'AI',
+          size: 1,
+        }))
+      refMarkersRef.current = markers
       syncMarkers()
       return
     }
-    const tsSet = new Set(refHighlightTimestamps.map(ts => new Date(ts).getTime()))
-    const markers: SeriesMarker<Time>[] = candles
-      .filter(c => tsSet.has(new Date(c.timestamp).getTime()))
-      .map(c => ({
-        time: (new Date(c.timestamp).getTime() / 1000) as Time,
-        position: 'belowBar' as const,
-        color: '#ff9800',
-        shape: 'arrowUp' as const,
-        text: 'AI',
-        size: 1,
-      }))
-    refMarkersRef.current = markers
+
+    // index-based (selected candles)
+    if (refHighlightIndices && refHighlightIndices.length > 0 && selectedCandles && selectedCandles.length > 0) {
+      const markers: SeriesMarker<Time>[] = refHighlightIndices
+        .map(idx => selectedCandles[idx - 1])
+        .filter(Boolean)
+        .map(c => ({
+          time: (new Date(c.timestamp).getTime() / 1000) as Time,
+          position: 'belowBar' as const,
+          color: '#ff9800',
+          shape: 'arrowUp' as const,
+          text: 'AI',
+          size: 1,
+        }))
+      refMarkersRef.current = markers
+      syncMarkers()
+      return
+    }
+
+    // nothing to highlight
+    refMarkersRef.current = []
     syncMarkers()
-  }, [refHighlightTimestamps, candles])
+  }, [refHighlightIndices, refHighlightTimestamps, selectedCandles, candles])
 
   // RSI sub-chart rendering
   useEffect(() => {
