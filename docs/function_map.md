@@ -11,6 +11,8 @@
 |------|---------|--------|------|
 | 設定管理 | backend/app/core/__init__.py | .env | ✅ 実装済 |
 | 為替データ取得 | backend/app/services/fx_data_service.py | yfinance, db/candle_repository | ✅ 実装済 |
+| ライブ価格取得 | backend/app/services/fx_data_service.py | yfinance(1m) → Twelve Data → DBキャッシュ | ✅ 実装済 |
+| 選択ローソク足AIコンテキスト | backend/app/services/ai_chat_service.py | models | ✅ 実装済 |
 | テクニカル指標計算 | backend/app/services/indicator_service.py | ta, models | ✅ 実装済 |
 | AI対話 | backend/app/services/ai_chat_service.py | httpx, core/config, models | ✅ 実装済 |
 | DB初期化 | backend/app/db/__init__.py | sqlite3 | ✅ 実装済 |
@@ -27,7 +29,9 @@
 | ローソク足チャート表示 | src/components/CandlestickChart.tsx | lightweight-charts, types | ✅ 実装済 |
 | テクニカル指標オーバーレイ | src/components/CandlestickChart.tsx | lightweight-charts | ✅ 実装済 |
 | 仮説ライン描画 | src/components/CandlestickChart.tsx | lightweight-charts | ✅ 実装済 |
-| AIチャットUI | src/components/ChatPanel.tsx | services/api | ✅ 実装済 |
+| ローソク足範囲選択（番号付き） | src/components/CandlestickChart.tsx | lightweight-charts | ✅ 実装済 |
+| AIチャットUI（⌘Enter送信） | src/components/ChatPanel.tsx | services/api | ✅ 実装済 |
+| ライブ価格バッジ（10秒更新） | src/App.tsx | services/api | ✅ 実装済 |
 | チャートコントロール | src/components/ChartControls.tsx | config | ✅ 実装済 |
 | 仮説表示パネル | src/components/HypothesisPanel.tsx | types | ✅ 実装済 |
 | API通信 | src/services/api.ts | config, types | ✅ 実装済 |
@@ -45,7 +49,7 @@
 | GET | /api/chat/history | チャット履歴取得 | app/api/__init__.py | ✅ |
 | GET | /api/indicators | 利用可能指標一覧 | app/api/__init__.py | ✅ |
 | GET | /api/hypotheses | 仮説一覧取得 | app/api/__init__.py | ✅ |
-| POST | /api/hypotheses/{id}/resolve | 仮説結果記録 | app/api/__init__.py | ✅ |
+| GET | /api/price | ライブ価格取得 | app/api/__init__.py | ✅ |
 
 ---
 
@@ -95,3 +99,5 @@
 |------|---------|
 | 2026-06-24 | 初期作成。テンプレート準備 |
 | 2026-06-30 | セットアップ・起動スクリプトのvenv対応 |
+| 2026-06-30 | mac/ フォルダ追加。setup.command / start.command 追加 |
+| 2026-07-01 | /api/price 追加。ライブ価格・ローソク足範囲選択・番号マーカー・JST表示・⌘Enter送信・自動更新安定化 |

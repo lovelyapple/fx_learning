@@ -74,6 +74,7 @@
 | 変数名 | 説明 | デフォルト |
 |--------|------|-----------|
 | GITHUB_TOKEN | GitHub Models API トークン | (なし・必須) |
+| TWELVEDATA_API_KEY | Twelve Data APIキー（ライブ価格フォールバック） | demo |
 | BACKEND_PORT | バックエンドポート | 8000 |
 | FRONTEND_PORT | フロントエンドポート | 5173 |
 | DEFAULT_PAIR | デフォルト通貨ペア | USDJPY=X |
@@ -82,12 +83,16 @@
 | 定数名 | 値 | 用途 | 定義場所 |
 |--------|---|------|----------|
 | API_BASE_URL | 環境変数から取得 | バックエンドURL | frontend/src/config/ |
+| DEFAULT_INTERVAL | 1m | デフォルトローソク足間隔 | backend/app/core/__init__.py |
+| DEFAULT_PERIOD | 1d | デフォルトデータ期間 | backend/app/core/__init__.py |
 | CANDLE_INTERVALS | 1m,5m,15m,1h,4h,1d | ローソク足間隔選択肢 | backend/app/core/__init__.py |
 | ALLOWED_PERIODS | 1d,5d,1mo,3mo,6mo,1y | データ期間選択肢 | backend/app/core/__init__.py |
 | ALLOWED_PAIRS | USDJPY=X,EURUSD=X,GBPJPY=X | 通貨ペア許可リスト | backend/app/core/__init__.py |
 | MAX_CHAT_HISTORY | 50 | AI会話の最大履歴数 | backend/app/core/__init__.py |
 | AI_CONTEXT_CANDLES | 80 | AIに渡す直近ローソク足数 | backend/app/core/__init__.py |
 | AI_TIMEOUT_SECONDS | 30 | AI API タイムアウト | backend/app/core/__init__.py |
+| AUTO_REFRESH_INTERVAL_MS | 30000 | チャート自動更新間隔 | frontend/src/config/index.ts |
+| LIVE_PRICE_INTERVAL_MS | 10000 | ライブ価格更新間隔 | frontend/src/config/index.ts |
 | DB_PATH | data/fx_learning.db | SQLiteファイル位置 | backend/app/db/__init__.py |
 
 ---
@@ -109,3 +114,4 @@
 | 2026-06-24 | 初期作成。プロジェクト基盤ドキュメント |
 | 2026-06-30 | Python venv対応。requirements.txt を >=形式に更新。.venv/ 追加 |
 | 2026-06-30 | mac/ フォルダ追加。setup.command / start.command 追加 |
+| 2026-07-01 | TWELVEDATA_API_KEY追加。定数にDEFAULT_INTERVAL/PERIOD/AUTO_REFRESH/LIVE_PRICE追加 |
