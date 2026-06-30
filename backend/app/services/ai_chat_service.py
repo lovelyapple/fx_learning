@@ -179,9 +179,9 @@ def _build_selected_context(selected_candles: list[CandleData]) -> str:
         f"陽線: {up_count}本　陰線: {down_count}本",
         "OHLC一覧:",
     ]
-    for c in selected_candles:
+    for i, c in enumerate(selected_candles, 1):
         direction = "↑" if c.close >= c.open else "↓"
-        lines.append(f"  {c.timestamp} {direction} O:{c.open} H:{c.high} L:{c.low} C:{c.close}")
+        lines.append(f"  #{i} {c.timestamp} {direction} O:{c.open} H:{c.high} L:{c.low} C:{c.close}")
 
     return "\n".join(lines)
 

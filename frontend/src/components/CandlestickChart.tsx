@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useRef } from 'react'
-import { createChart, IChartApi, ISeriesApi, CandlestickData, LineData } from 'lightweight-charts'
+import { createChart, IChartApi, ISeriesApi, CandlestickData, LineData, SeriesMarker, Time } from 'lightweight-charts'
 import { config } from '@/config'
 import type { CandleData, IndicatorData, HypothesisData } from '@/types'
 
@@ -103,6 +103,9 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
       time: (new Date(c.timestamp).getTime() / 1000) as any,
       open: c.open, high: c.high, low: c.low, close: c.close,
     })))
+    // チャート更新時に番号マーカーをクリア
+    candleSeriesRef.current.setMarkers([])
+    selectionSeriesRef.current?.setData([])
   }, [candles])
 
   // Indicators + hypothesis lines
@@ -201,6 +204,7 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
       overlay.style.display = 'none'
       if (w <= 4) {
         selectionSeriesRef.current?.setData([])
+        candleSeriesRef.current?.setMarkers([])
         onSelectionChangeRef.current?.([])
         return
       }
@@ -210,6 +214,16 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
           time: (new Date(c.timestamp).getTime() / 1000) as any,
           open: c.open, high: c.high, low: c.low, close: c.close,
         })))
+        // 番号マーカーを設定
+        const markers: SeriesMarker<Time>[] = selected.map((c, i) => ({
+          time: (new Date(c.timestamp).getTime() / 1000) as Time,
+          position: 'aboveBar' as const,
+          color: '#ffeb3b',
+          shape: 'circle' as const,
+          text: String(i + 1),
+          size: 0,
+        }))
+        candleSeriesRef.current?.setMarkers(markers)
       }
       onSelectionChangeRef.current?.(selected)
     }
