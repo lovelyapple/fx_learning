@@ -2,7 +2,7 @@
  * ChatPanel component - AI conversation interface.
  */
 
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useCallback } from 'react'
 import { useState } from 'react'
 import type { ChatMessage, HypothesisData, CandleData } from '@/types'
 import { sendChatMessage } from '@/services/api'
@@ -16,9 +16,63 @@ interface Props {
   onMessagesChange: (updater: (prev: ChatMessage[]) => ChatMessage[]) => void
   onHighlightCandles?: (indices: number[], source: 'selected') => void
   onHighlightTimestamps?: (timestamps: string[]) => void
+  onFocusTimestamp?: (ts: string) => void
 }
 
-export function ChatPanel({ pair, interval, selectedCandles, onHypothesis, messages, onMessagesChange, onHighlightCandles, onHighlightTimestamps }: Props) {
+/** AIメッセージ内の [足#N] / [C#N] をインラインボタンとしてレンダリング */
+function renderWithInlineLinks(
+  content: string,
+  selectedCandles: CandleData[],
+  refChartTimestamps: string[] | undefined,
+  onClickSelected: (ts: string) => void,
+  onClickChart: (ts: string) => void,
+) {
+  const regex = /(\[足#(\d+)\]|\[C#(\d+)\])/g
+  const parts: React.ReactNode[] = []
+  let last = 0
+  let m: RegExpExecArray | null
+  let key = 0
+
+  while ((m = regex.exec(content)) !== null) {
+    if (m.index > last) parts.push(<span key={key++}>{content.slice(last, m.index)}</span>)
+
+    if (m[2] != null) {
+      // [足#N] → selectedCandles[N-1]
+      const n = parseInt(m[2])
+      const candle = selectedCandles[n - 1]
+      const ts = candle ? String(candle.timestamp) : null
+      parts.push(
+        <button
+          key={key++}
+          className={`inline-candle-link${ts ? '' : ' disabled'}`}
+          onClick={() => ts && onClickSelected(ts)}
+          title={ts ? `足#${n}をハイライト` : `足#${n}は未選択`}
+        >
+          {m[0]}
+        </button>
+      )
+    } else if (m[3] != null) {
+      // [C#N] → refChartTimestamps[N-1]
+      const n = parseInt(m[3])
+      const ts = refChartTimestamps?.[n - 1]
+      parts.push(
+        <button
+          key={key++}
+          className={`inline-candle-link chart-link${ts ? '' : ' disabled'}`}
+          onClick={() => ts && onClickChart(ts)}
+          title={ts ? `C#${n}をハイライト` : `C#${n}のデータなし`}
+        >
+          {m[0]}
+        </button>
+      )
+    }
+    last = m.index + m[0].length
+  }
+  if (last < content.length) parts.push(<span key={key++}>{content.slice(last)}</span>)
+  return parts
+}
+
+export function ChatPanel({ pair, interval, selectedCandles, onHypothesis, messages, onMessagesChange, onHighlightCandles, onHighlightTimestamps, onFocusTimestamp }: Props) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -26,6 +80,19 @@ export function ChatPanel({ pair, interval, selectedCandles, onHypothesis, messa
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  const handleInlineSelected = useCallback((ts: string) => {
+    const idx = selectedCandles.findIndex(c => String(c.timestamp) === ts)
+    if (idx >= 0) {
+      onHighlightCandles?.([idx + 1], 'selected')
+      onFocusTimestamp?.(ts)
+    }
+  }, [selectedCandles, onHighlightCandles, onFocusTimestamp])
+
+  const handleInlineChart = useCallback((ts: string) => {
+    onHighlightTimestamps?.([ts])
+    onFocusTimestamp?.(ts)
+  }, [onHighlightTimestamps, onFocusTimestamp])
 
   const handleSend = async () => {
     const text = input.trim()
@@ -90,7 +157,15 @@ export function ChatPanel({ pair, interval, selectedCandles, onHypothesis, messa
         {messages.map((msg, i) => (
           <div key={i} className={`chat-message ${msg.role}`}>
             <div className="chat-message-content">
-              {msg.content}
+              {msg.role === 'assistant'
+                ? renderWithInlineLinks(
+                    msg.content,
+                    selectedCandles,
+                    msg.ref_chart_timestamps,
+                    handleInlineSelected,
+                    handleInlineChart,
+                  )
+                : msg.content}
             </div>
             {msg.ref_candles && msg.ref_candles.length > 0 && (
               <button

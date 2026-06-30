@@ -356,6 +356,42 @@ body {
   background: rgba(33, 150, 243, 0.3);
 }
 
+/* AI返答内インラインリンク: [足#N] [C#N] */
+.inline-candle-link {
+  display: inline;
+  padding: 1px 6px;
+  margin: 0 2px;
+  background: rgba(255, 152, 0, 0.15);
+  border: 1px solid rgba(255, 152, 0, 0.5);
+  border-radius: 4px;
+  color: #ff9800;
+  font-size: 0.85em;
+  font-family: inherit;
+  cursor: pointer;
+  vertical-align: baseline;
+  transition: background 0.15s;
+  line-height: 1.2;
+}
+
+.inline-candle-link:hover {
+  background: rgba(255, 152, 0, 0.35);
+}
+
+.inline-candle-link.chart-link {
+  background: rgba(33, 150, 243, 0.15);
+  border-color: rgba(33, 150, 243, 0.5);
+  color: #2196f3;
+}
+
+.inline-candle-link.chart-link:hover {
+  background: rgba(33, 150, 243, 0.35);
+}
+
+.inline-candle-link.disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .chat-input-area {
   display: flex;
   gap: 8px;

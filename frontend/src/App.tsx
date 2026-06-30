@@ -39,6 +39,7 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [refHighlightIndices, setRefHighlightIndices] = useState<number[]>([])
   const [refHighlightTimestamps, setRefHighlightTimestamps] = useState<string[]>([])
+  const [focusTimestamp, setFocusTimestamp] = useState<string | null>(null)
 
   const handleHighlightCandles = useCallback((indices: number[], _source: 'selected') => {
     setRefHighlightIndices(indices)
@@ -48,6 +49,10 @@ export default function App() {
   const handleHighlightTimestamps = useCallback((timestamps: string[]) => {
     setRefHighlightTimestamps(timestamps)
     setRefHighlightIndices([])
+  }, [])
+
+  const handleFocusTimestamp = useCallback((ts: string) => {
+    setFocusTimestamp(ts)
   }, [])
 
   const toggleSidebar = () => {
@@ -190,6 +195,7 @@ export default function App() {
               refHighlightIndices={refHighlightIndices}
               refHighlightTimestamps={refHighlightTimestamps}
               selectedCandles={selectedCandles}
+              focusTimestamp={focusTimestamp}
             />
 
             <HypothesisPanel hypothesis={hypothesis} />
@@ -205,6 +211,7 @@ export default function App() {
               onMessagesChange={setChatMessages}
               onHighlightCandles={handleHighlightCandles}
               onHighlightTimestamps={handleHighlightTimestamps}
+              onFocusTimestamp={handleFocusTimestamp}
             />
           </div>
         </div>

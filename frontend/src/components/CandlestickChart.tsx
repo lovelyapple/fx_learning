@@ -19,9 +19,10 @@ interface Props {
   refHighlightTimestamps?: string[]
   onSelectionChange?: (selected: CandleData[]) => void
   onSingleCandleClick?: (candle: CandleData | null) => void
+  focusTimestamp?: string | null
 }
 
-export function CandlestickChart({ candles, indicators, hypothesis, visibleIndicators, selectedCandles, refHighlightIndices, refHighlightTimestamps, onSelectionChange, onSingleCandleClick }: Props) {
+export function CandlestickChart({ candles, indicators, hypothesis, visibleIndicators, selectedCandles, refHighlightIndices, refHighlightTimestamps, onSelectionChange, onSingleCandleClick, focusTimestamp }: Props) {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const rsiContainerRef = useRef<HTMLDivElement>(null)
@@ -530,6 +531,19 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
       window.removeEventListener('mouseup', onMouseUp)
     }
   }, [])
+
+  // focusTimestamp: チャートをその足にスクロールする
+  useEffect(() => {
+    if (!focusTimestamp || !chartRef.current || !candles.length) return
+    const targetMs = new Date(focusTimestamp).getTime()
+    const idx = candles.findIndex(c => Math.abs(new Date(c.timestamp).getTime() - targetMs) < 60_000)
+    if (idx < 0) return
+    const halfWindow = 20
+    chartRef.current.timeScale().setVisibleLogicalRange({
+      from: Math.max(0, idx - halfWindow),
+      to: Math.min(candles.length - 1, idx + halfWindow),
+    })
+  }, [focusTimestamp, candles])
 
   return (
     <div ref={wrapperRef} style={{ width: '100%', position: 'relative' }}>
