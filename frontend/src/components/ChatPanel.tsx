@@ -104,7 +104,7 @@ export function ChatPanel({ pair, interval, selectedCandles, onHypothesis, messa
             ? `${selectedCandles.length}本のローソク足について質問... (⌘Enter で送信)`
             : '質問を入力... (⌘Enter で送信、Enter で改行)'}
           disabled={loading}
-          rows={2}
+          rows={5}
         />
         <button onClick={handleSend} disabled={loading || !input.trim()}>
           送信
