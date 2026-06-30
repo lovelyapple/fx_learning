@@ -40,6 +40,7 @@ export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   ref_candles?: number[]
+  ref_chart_timestamps?: string[]
 }
 
 export interface HypothesisData {
@@ -60,6 +61,8 @@ export interface ChatResponse {
   message: string
   hypothesis: HypothesisData | null
   ref_candles: number[] | null
+  ref_chart: number[] | null
+  ref_chart_timestamps: string[] | null
   disclaimer: string
 }
 

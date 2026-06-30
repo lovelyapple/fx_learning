@@ -17,6 +17,7 @@ from app.models import (
     ChatResponse,
     HypothesisData,
 )
+from app.db.candle_repository import search_candles_by_pattern
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,8 @@ async def chat_with_ai(
     candles: list[CandleData],
     indicators: list[IndicatorData],
     selected_candles: list[CandleData] | None = None,
+    pair: str = "USDJPY=X",
+    interval: str = "1m",
 ) -> ChatResponse:
     """Send a message to AI with chart context.
 
@@ -49,9 +52,10 @@ async def chat_with_ai(
     system_prompt = settings.load_system_prompt()
     chart_context = _build_chart_context(candles, indicators, selected_candles or [])
     selected_context = _build_selected_context(selected_candles or [])
+    search_context, search_candles = _build_search_context(message, pair, interval)
 
     messages = [
-        {"role": "system", "content": f"{system_prompt}\n\n## 現在のチャート状況\n{chart_context}{selected_context}"},
+        {"role": "system", "content": f"{system_prompt}\n\n## 現在のチャート状況\n{chart_context}{selected_context}{search_context}"},
     ]
 
     # Add history (limited)
@@ -93,7 +97,22 @@ async def chat_with_ai(
     clean_message = _strip_ref_markers(ai_message)
     hypothesis = _extract_hypothesis(clean_message)
 
-    return ChatResponse(message=clean_message, hypothesis=hypothesis, ref_candles=ref_candles, ref_chart=ref_chart)
+    # ref_chart のタイムスタンプを解決（1-indexed）
+    ref_chart_timestamps: list[str] | None = None
+    if ref_chart and search_candles:
+        ref_chart_timestamps = [
+            search_candles[i - 1].timestamp.isoformat()
+            for i in ref_chart
+            if 1 <= i <= len(search_candles)
+        ] or None
+
+    return ChatResponse(
+        message=clean_message,
+        hypothesis=hypothesis,
+        ref_candles=ref_candles,
+        ref_chart=ref_chart,
+        ref_chart_timestamps=ref_chart_timestamps,
+    )
 
 
 def _build_chart_context(
@@ -149,18 +168,6 @@ def _build_chart_context(
             elif latest_ind.rsi < 30:
                 context_parts.append("RSI状態: 売られすぎ圏")
 
-    # 直近20本のローソク足（C#1=最古、C#20=最新）
-    context_window = candles[-20:]
-    selected_ts = {c.timestamp for c in (selected_candles or [])}
-    context_parts.append(f"\n## 直近{len(context_window)}本のローソク足一覧（C#1=最古、C#{len(context_window)}=最新）")
-    for i, c in enumerate(context_window, 1):
-        direction = "↑陽線" if c.close >= c.open else "↓陰線"
-        star = "★選択中 " if c.timestamp in selected_ts else ""
-        context_parts.append(
-            f"  C#{i} {star}{c.timestamp} {direction} O:{c.open} H:{c.high} L:{c.low} C:{c.close}"
-        )
-    context_parts.append(f"※ ref_chart で上記のC#番号を参照できます")
-
     return "\n".join(context_parts)
 
 
@@ -196,6 +203,38 @@ def _build_selected_context(selected_candles: list[CandleData]) -> str:
         lines.append(f"  #{i} {c.timestamp} {direction} O:{c.open} H:{c.high} L:{c.low} C:{c.close}")
 
     return "\n".join(lines)
+
+
+def _build_search_context(message: str, pair: str, interval: str) -> tuple[str, list[CandleData]]:
+    """Search DB for candles matching pattern keywords in the user message.
+
+    Uses rule-based SQL queries (no LLM needed for search).
+    Returns a context block with matching candles and their C#N references,
+    plus the list of matched candles for timestamp resolution.
+    """
+    pattern_keywords = ["陽線", "大陽線", "小陽線", "陰線", "大陰線", "小陰線", "ドジ", "ハンマー", "上影線", "下影線"]
+    found_pattern = next((kw for kw in pattern_keywords if kw in message), None)
+    if not found_pattern:
+        return "", []
+
+    results = search_candles_by_pattern(pair, interval, found_pattern, limit=3)
+    if not results:
+        return f"\n\n## 検索結果：「{found_pattern}」\nDBに該当するローソク足が見つかりませんでした。", []
+
+    lines = [
+        f"\n\n## 検索結果：「{found_pattern}」（DBから{len(results)}本）",
+        f"以下のローソク足が「{found_pattern}」の条件に合致します。C#番号でref_chartに指定できます。",
+    ]
+    for i, c in enumerate(results, 1):
+        direction = "↑陽線" if c.close >= c.open else "↓陰線"
+        body_ratio = abs(c.close - c.open) / (c.high - c.low) if c.high != c.low else 0
+        lines.append(
+            f"  C#{i} {c.timestamp} {direction} O:{c.open} H:{c.high} L:{c.low} C:{c.close} "
+            f"（ボディ比率{body_ratio:.0%}）"
+        )
+    lines.append(f"※ 回答でこれらの足を参照する場合は <!-- ref_chart:[1,2] --> 形式で末尾に付けてください。")
+
+    return "\n".join(lines), results
 
 
 def _extract_hypothesis(ai_message: str) -> HypothesisData | None:

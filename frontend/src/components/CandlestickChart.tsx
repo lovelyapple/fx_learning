@@ -16,11 +16,12 @@ interface Props {
   visibleIndicators: string[]
   selectedCandles?: CandleData[]
   refHighlightIndices?: number[]
+  refHighlightTimestamps?: string[]
   onSelectionChange?: (selected: CandleData[]) => void
   onSingleCandleClick?: (candle: CandleData | null) => void
 }
 
-export function CandlestickChart({ candles, indicators, hypothesis, visibleIndicators, selectedCandles, refHighlightIndices, onSelectionChange, onSingleCandleClick }: Props) {
+export function CandlestickChart({ candles, indicators, hypothesis, visibleIndicators, selectedCandles, refHighlightIndices, refHighlightTimestamps, onSelectionChange, onSingleCandleClick }: Props) {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const rsiContainerRef = useRef<HTMLDivElement>(null)
@@ -265,12 +266,14 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     }
   }, [indicators, visibleIndicators, hypothesis, candles])
 
-  // AI referenced candles highlight — orange arrow markers
+  // AI referenced candles highlight — orange arrow markers (selected-based)
   useEffect(() => {
     if (!candleSeriesRef.current) return
     if (!refHighlightIndices || refHighlightIndices.length === 0 || !selectedCandles || !selectedCandles.length) {
-      refMarkersRef.current = []
-      syncMarkers()
+      if (!refHighlightTimestamps?.length) {
+        refMarkersRef.current = []
+        syncMarkers()
+      }
       return
     }
     const markers: SeriesMarker<Time>[] = refHighlightIndices
@@ -287,6 +290,29 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     refMarkersRef.current = markers
     syncMarkers()
   }, [refHighlightIndices, selectedCandles])
+
+  // AI referenced candles highlight — timestamp-based (DB search results)
+  useEffect(() => {
+    if (!candleSeriesRef.current) return
+    if (!refHighlightTimestamps || refHighlightTimestamps.length === 0) {
+      refMarkersRef.current = []
+      syncMarkers()
+      return
+    }
+    const tsSet = new Set(refHighlightTimestamps.map(ts => new Date(ts).getTime()))
+    const markers: SeriesMarker<Time>[] = candles
+      .filter(c => tsSet.has(new Date(c.timestamp).getTime()))
+      .map(c => ({
+        time: (new Date(c.timestamp).getTime() / 1000) as Time,
+        position: 'belowBar' as const,
+        color: '#ff9800',
+        shape: 'arrowUp' as const,
+        text: 'AI',
+        size: 1,
+      }))
+    refMarkersRef.current = markers
+    syncMarkers()
+  }, [refHighlightTimestamps, candles])
 
   // RSI sub-chart rendering
   useEffect(() => {

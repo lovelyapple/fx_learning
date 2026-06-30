@@ -346,6 +346,16 @@ body {
   background: rgba(255, 152, 0, 0.3);
 }
 
+.ref-chart-badge {
+  background: rgba(33, 150, 243, 0.15);
+  border-color: rgba(33, 150, 243, 0.5);
+  color: #2196f3;
+}
+
+.ref-chart-badge:hover {
+  background: rgba(33, 150, 243, 0.3);
+}
+
 .chat-input-area {
   display: flex;
   gap: 8px;

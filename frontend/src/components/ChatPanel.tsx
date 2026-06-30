@@ -14,10 +14,11 @@ interface Props {
   onHypothesis: (h: HypothesisData) => void
   messages: ChatMessage[]
   onMessagesChange: (updater: (prev: ChatMessage[]) => ChatMessage[]) => void
-  onHighlightCandles?: (indices: number[]) => void
+  onHighlightCandles?: (indices: number[], source: 'selected') => void
+  onHighlightTimestamps?: (timestamps: string[]) => void
 }
 
-export function ChatPanel({ pair, interval, selectedCandles, onHypothesis, messages, onMessagesChange, onHighlightCandles }: Props) {
+export function ChatPanel({ pair, interval, selectedCandles, onHypothesis, messages, onMessagesChange, onHighlightCandles, onHighlightTimestamps }: Props) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -41,6 +42,7 @@ export function ChatPanel({ pair, interval, selectedCandles, onHypothesis, messa
         role: 'assistant',
         content: response.message,
         ref_candles: response.ref_candles ?? undefined,
+        ref_chart_timestamps: response.ref_chart_timestamps ?? undefined,
       }
       onMessagesChange(prev => [...prev, assistantMsg])
 
@@ -93,10 +95,19 @@ export function ChatPanel({ pair, interval, selectedCandles, onHypothesis, messa
             {msg.ref_candles && msg.ref_candles.length > 0 && (
               <button
                 className="ref-candles-badge"
-                onClick={() => onHighlightCandles?.(msg.ref_candles!)}
+                onClick={() => onHighlightCandles?.(msg.ref_candles!, 'selected')}
                 title="クリックしてチャート上でハイライト"
               >
-                📍 足 {msg.ref_candles.map(n => `#${n}`).join(', ')} をハイライト
+                📍 選択足 {msg.ref_candles.map(n => `#${n}`).join(', ')} をハイライト
+              </button>
+            )}
+            {msg.ref_chart_timestamps && msg.ref_chart_timestamps.length > 0 && (
+              <button
+                className="ref-candles-badge ref-chart-badge"
+                onClick={() => onHighlightTimestamps?.(msg.ref_chart_timestamps!)}
+                title="DBから検索した足をチャート上でハイライト"
+              >
+                🔍 検索結果の足をハイライト ({msg.ref_chart_timestamps.length}本)
               </button>
             )}
           </div>
