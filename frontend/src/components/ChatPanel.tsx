@@ -22,7 +22,8 @@ interface Props {
 /** AIメッセージ内の [足#N] / [C#N] をインラインボタンとしてレンダリング */
 function renderWithInlineLinks(
   content: string,
-  refSelectedTimestamps: string[] | undefined,
+  refCandles: number[] | undefined,           // e.g. [1, 4, 5]
+  refSelectedTimestamps: string[] | undefined, // same order as refCandles
   refChartTimestamps: string[] | undefined,
   onClickSelected: (ts: string) => void,
   onClickChart: (ts: string) => void,
@@ -37,9 +38,10 @@ function renderWithInlineLinks(
     if (m.index > last) parts.push(<span key={key++}>{content.slice(last, m.index)}</span>)
 
     if (m[2] != null) {
-      // [足#N] → refSelectedTimestamps[N-1] (snapshot at message time)
+      // [足#N] → refCandles の配列中の位置で refSelectedTimestamps を引く
       const n = parseInt(m[2])
-      const ts = refSelectedTimestamps?.[n - 1] ?? null
+      const pos = refCandles?.indexOf(n) ?? -1
+      const ts = pos >= 0 ? (refSelectedTimestamps?.[pos] ?? null) : null
       parts.push(
         <button
           key={key++}
@@ -160,6 +162,7 @@ export function ChatPanel({ pair, interval, selectedCandles, onHypothesis, messa
               {msg.role === 'assistant'
                 ? renderWithInlineLinks(
                     msg.content,
+                    msg.ref_candles,
                     msg.ref_selected_timestamps,
                     msg.ref_chart_timestamps,
                     handleInlineSelected,
