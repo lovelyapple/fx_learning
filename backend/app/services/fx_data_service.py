@@ -66,14 +66,24 @@ def fetch_candles(
 
 
 def fetch_live_price(pair: str) -> LivePriceResponse:
-    """Fetch current price using Twelve Data API (real-time, low latency).
+    """Fetch current price for the pair.
 
-    Falls back to yfinance fast_info, then last DB candle close.
+    Priority: yfinance 1m history (latest close) → Twelve Data → DB cache
     """
     settings = get_settings()
-    symbol = _pair_to_twelvedata_symbol(pair)
 
-    # Try Twelve Data first
+    # yfinance: 1m足の最新closeを取得（軽量）
+    try:
+        ticker = yf.Ticker(pair)
+        df = ticker.history(period="1d", interval="1m")
+        if not df.empty:
+            price = round(float(df["Close"].iloc[-1]), 3)
+            return LivePriceResponse(pair=pair, price=price, fetched_at=datetime.now())
+    except Exception as e:
+        logger.warning(f"yfinance live price failed: {e}")
+
+    # Fallback: Twelve Data
+    symbol = _pair_to_twelvedata_symbol(pair)
     try:
         import httpx
         r = httpx.get(
@@ -86,15 +96,6 @@ def fetch_live_price(pair: str) -> LivePriceResponse:
             return LivePriceResponse(pair=pair, price=round(float(data["price"]), 3), fetched_at=datetime.now())
     except Exception as e:
         logger.warning(f"Twelve Data fetch failed: {e}")
-
-    # Fallback: yfinance fast_info
-    try:
-        ticker = yf.Ticker(pair)
-        price = ticker.fast_info.last_price
-        if price and price > 0:
-            return LivePriceResponse(pair=pair, price=round(price, 3), fetched_at=datetime.now())
-    except Exception as e:
-        logger.warning(f"fast_info fetch failed: {e}")
 
     # Last resort: last DB candle
     from app.db.candle_repository import load_candles
