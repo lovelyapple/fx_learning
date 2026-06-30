@@ -46,6 +46,9 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
       },
       crosshair: { mode: 0 },
       timeScale: { timeVisible: true, secondsVisible: false },
+      // マウスドラッグは選択に使うため無効化。2本指/ホイールはそのまま有効
+      handleScroll: { mouseWheel: true, pressedMouseMove: false, horzTouchDrag: true, vertTouchDrag: false },
+      handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: true },
     })
 
     chartRef.current = chart
