@@ -7,9 +7,13 @@ import { CandlestickChart } from '@/components/CandlestickChart'
 import { ChatPanel } from '@/components/ChatPanel'
 import { ChartControls } from '@/components/ChartControls'
 import { HypothesisPanel } from '@/components/HypothesisPanel'
+import { PatternLibrary } from '@/components/PatternLibrary'
+import { PatternSidebar } from '@/components/PatternSidebar'
 import { fetchChart, fetchLivePrice } from '@/services/api'
 import { config } from '@/config'
 import type { CandleData, IndicatorData, HypothesisData } from '@/types'
+
+const SIDEBAR_KEY = 'fx_pattern_sidebar_open'
 
 export default function App() {
   const [pair] = useState(config.defaultPair as string)
@@ -19,6 +23,7 @@ export default function App() {
   const [indicators, setIndicators] = useState<IndicatorData[]>([])
   const [hypothesis, setHypothesis] = useState<HypothesisData | null>(null)
   const [selectedCandles, setSelectedCandles] = useState<CandleData[]>([])
+  const [singleSelectedCandle, setSingleSelectedCandle] = useState<CandleData | null>(null)
   const [visibleIndicators, setVisibleIndicators] = useState<string[]>(['sma_20', 'sma_50'])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -26,6 +31,19 @@ export default function App() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [livePrice, setLivePrice] = useState<number | null>(null)
   const [prevPrice, setPrevPrice] = useState<number | null>(null)
+  const [view, setView] = useState<'chart' | 'patterns'>('chart')
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(
+    () => localStorage.getItem(SIDEBAR_KEY) === 'true'
+  )
+
+  const toggleSidebar = () => {
+    setSidebarOpen(prev => {
+      const next = !prev
+      localStorage.setItem(SIDEBAR_KEY, String(next))
+      return next
+    })
+  }
+
   const loadChart = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -73,11 +91,32 @@ export default function App() {
     setHypothesis(h)
   }
 
+  const handleSingleCandleClick = (candle: CandleData | null) => {
+    setSingleSelectedCandle(candle)
+  }
+
+  const handleSelectionChange = (selected: CandleData[]) => {
+    setSelectedCandles(selected)
+    // 範囲選択（複数）のときは単独選択をクリア
+    if (selected.length > 1) setSingleSelectedCandle(null)
+  }
+
   return (
     <div className="app">
       <header className="app-header">
         <h1>📊 FX Learning App</h1>
         <span className="subtitle">AIと学ぶテクニカル分析</span>
+        {/* ビュー切り替えボタン */}
+        <div className="view-tabs">
+          <button
+            className={`view-tab-btn ${view === 'chart' ? 'active' : ''}`}
+            onClick={() => setView('chart')}
+          >📈 チャート</button>
+          <button
+            className={`view-tab-btn ${view === 'patterns' ? 'active' : ''}`}
+            onClick={() => setView('patterns')}
+          >📚 パターン集</button>
+        </div>
         {delayNote && <span className="delay-note">⚠️ {delayNote}</span>}
         {livePrice !== null && (
           <span className={`live-price ${prevPrice !== null && livePrice > prevPrice ? 'up' : prevPrice !== null && livePrice < prevPrice ? 'down' : ''}`}>
@@ -92,42 +131,56 @@ export default function App() {
         )}
       </header>
 
-      <div className="app-layout">
-        <div className="chart-section">
-          <ChartControls
-            pair={pair}
-            interval={interval}
-            period={period}
-            visibleIndicators={visibleIndicators}
-            onIntervalChange={setInterval_}
-            onPeriodChange={setPeriod}
-            onToggleIndicator={handleToggleIndicator}
-            onRefresh={loadChart}
-          />
-
-          {error && <div className="error-banner">{error}</div>}
-          {loading && <div className="loading-overlay">読み込み中...</div>}
-
-          <CandlestickChart
-            candles={candles}
-            indicators={indicators}
-            hypothesis={hypothesis}
-            visibleIndicators={visibleIndicators}
-            onSelectionChange={setSelectedCandles}
-          />
-
-          <HypothesisPanel hypothesis={hypothesis} />
+      {view === 'patterns' ? (
+        <div className="pattern-library-page">
+          <PatternLibrary />
         </div>
-
-        <div className="chat-section">
-          <ChatPanel
-            pair={pair}
-            interval={interval}
-            selectedCandles={selectedCandles}
-            onHypothesis={handleHypothesis}
+      ) : (
+        <div className="app-layout" style={{ gridTemplateColumns: `${sidebarOpen ? '280px' : '40px'} 1fr 380px` }}>
+          <PatternSidebar
+            isOpen={sidebarOpen}
+            onToggle={toggleSidebar}
+            selectedCandle={singleSelectedCandle}
           />
+
+          <div className="chart-section">
+            <ChartControls
+              pair={pair}
+              interval={interval}
+              period={period}
+              visibleIndicators={visibleIndicators}
+              onIntervalChange={setInterval_}
+              onPeriodChange={setPeriod}
+              onToggleIndicator={handleToggleIndicator}
+              onRefresh={loadChart}
+            />
+
+            {error && <div className="error-banner">{error}</div>}
+            {loading && <div className="loading-overlay">読み込み中...</div>}
+
+            <CandlestickChart
+              candles={candles}
+              indicators={indicators}
+              hypothesis={hypothesis}
+              visibleIndicators={visibleIndicators}
+              onSelectionChange={handleSelectionChange}
+              onSingleCandleClick={handleSingleCandleClick}
+            />
+
+            <HypothesisPanel hypothesis={hypothesis} />
+          </div>
+
+          <div className="chat-section">
+            <ChatPanel
+              pair={pair}
+              interval={interval}
+              selectedCandles={selectedCandles}
+              onHypothesis={handleHypothesis}
+            />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
+

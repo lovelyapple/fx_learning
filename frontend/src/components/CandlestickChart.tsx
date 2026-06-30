@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useRef } from 'react'
-import { createChart, IChartApi, ISeriesApi, CandlestickData, LineData, SeriesMarker, Time } from 'lightweight-charts'
+import { createChart, IChartApi, ISeriesApi, LineData, SeriesMarker, Time } from 'lightweight-charts'
 import { config } from '@/config'
 import type { CandleData, IndicatorData, HypothesisData } from '@/types'
 
@@ -15,9 +15,10 @@ interface Props {
   hypothesis: HypothesisData | null
   visibleIndicators: string[]
   onSelectionChange?: (selected: CandleData[]) => void
+  onSingleCandleClick?: (candle: CandleData | null) => void
 }
 
-export function CandlestickChart({ candles, indicators, hypothesis, visibleIndicators, onSelectionChange }: Props) {
+export function CandlestickChart({ candles, indicators, hypothesis, visibleIndicators, onSelectionChange, onSingleCandleClick }: Props) {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const captureRef = useRef<HTMLDivElement>(null)
@@ -25,15 +26,19 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
   const chartRef = useRef<IChartApi | null>(null)
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
   const selectionSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
+  const hoverSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
   const lineSeriesRefs = useRef<Map<string, ISeriesApi<'Line'>>>(new Map())
 
   const selectedCandlesRef = useRef<CandleData[]>([])
   const selectedMarkersRef = useRef<SeriesMarker<Time>[]>([])
+  const hoveredCandleRef = useRef<CandleData | null>(null)
 
   const candlesRef = useRef<CandleData[]>([])
   const onSelectionChangeRef = useRef(onSelectionChange)
+  const onSingleCandleClickRef = useRef(onSingleCandleClick)
   useEffect(() => { candlesRef.current = candles }, [candles])
   useEffect(() => { onSelectionChangeRef.current = onSelectionChange }, [onSelectionChange])
+  useEffect(() => { onSingleCandleClickRef.current = onSingleCandleClick }, [onSingleCandleClick])
 
   // Chart init
   useEffect(() => {
@@ -87,6 +92,38 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
       lastValueVisible: false, priceLineVisible: false,
     })
 
+    // ホバーハイライト（緑）
+    hoverSeriesRef.current = chart.addCandlestickSeries({
+      upColor: 'rgba(76,175,80,0.45)', downColor: 'rgba(76,175,80,0.45)',
+      borderVisible: true,
+      borderUpColor: '#4caf50', borderDownColor: '#4caf50',
+      wickUpColor: '#4caf50', wickDownColor: '#4caf50',
+      lastValueVisible: false, priceLineVisible: false,
+    })
+
+    // crosshairが動いたときにホバーしているローソク足を追跡
+    chart.subscribeCrosshairMove((param) => {
+      const all = candlesRef.current
+      if (!param.time || !all.length) {
+        hoverSeriesRef.current?.setData([])
+        hoveredCandleRef.current = null
+        return
+      }
+      const t = param.time as number
+      const candle = all.find(c =>
+        Math.round(new Date(c.timestamp).getTime() / 1000) === Math.round(t)
+      ) ?? null
+      hoveredCandleRef.current = candle
+      if (candle) {
+        hoverSeriesRef.current?.setData([{
+          time: t as any,
+          open: candle.open, high: candle.high, low: candle.low, close: candle.close,
+        }])
+      } else {
+        hoverSeriesRef.current?.setData([])
+      }
+    })
+
     const handleResize = () => {
       if (chartContainerRef.current)
         chart.applyOptions({ width: chartContainerRef.current.clientWidth })
@@ -99,6 +136,7 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
       chartRef.current = null
       candleSeriesRef.current = null
       selectionSeriesRef.current = null
+      hoverSeriesRef.current = null
       lineSeriesRefs.current.clear()
     }
   }, [])
@@ -202,6 +240,10 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
       startX = getX(e)
       overlay.style.display = 'none'
       selectionSeriesRef.current?.setData([])
+      candleSeriesRef.current?.setMarkers([])
+      selectedCandlesRef.current = []
+      selectedMarkersRef.current = []
+      onSingleCandleClickRef.current?.(null)
       onSelectionChangeRef.current?.([])
     }
 
@@ -234,11 +276,34 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
       const w = Math.abs(x - startX)
       overlay.style.display = 'none'
       if (w <= 4) {
-        selectionSeriesRef.current?.setData([])
-        candleSeriesRef.current?.setMarkers([])
-        selectedCandlesRef.current = []
-        selectedMarkersRef.current = []
-        onSelectionChangeRef.current?.([])
+        // 単独クリック: ホバー中のローソク足を選択
+        const hovered = hoveredCandleRef.current
+        if (hovered) {
+          const t = (new Date(hovered.timestamp).getTime() / 1000) as any
+          const markers: SeriesMarker<Time>[] = [{
+            time: t as Time,
+            position: 'aboveBar' as const,
+            color: '#ffeb3b',
+            shape: 'circle' as const,
+            text: '1',
+            size: 0,
+          }]
+          selectionSeriesRef.current?.setData([{
+            time: t, open: hovered.open, high: hovered.high, low: hovered.low, close: hovered.close,
+          }])
+          candleSeriesRef.current?.setMarkers(markers)
+          selectedCandlesRef.current = [hovered]
+          selectedMarkersRef.current = markers
+          onSingleCandleClickRef.current?.(hovered)
+          onSelectionChangeRef.current?.([hovered])
+        } else {
+          selectionSeriesRef.current?.setData([])
+          candleSeriesRef.current?.setMarkers([])
+          selectedCandlesRef.current = []
+          selectedMarkersRef.current = []
+          onSingleCandleClickRef.current?.(null)
+          onSelectionChangeRef.current?.([])
+        }
         return
       }
       const selected = resolveSelected(startX, x)
