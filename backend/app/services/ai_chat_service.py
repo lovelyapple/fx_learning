@@ -89,10 +89,11 @@ async def chat_with_ai(
 
     ai_message = data["choices"][0]["message"]["content"]
     ref_candles = _extract_ref_candles(ai_message)
-    clean_message = _strip_ref_candles(ai_message)
+    ref_chart = _extract_ref_chart(ai_message)
+    clean_message = _strip_ref_markers(ai_message)
     hypothesis = _extract_hypothesis(clean_message)
 
-    return ChatResponse(message=clean_message, hypothesis=hypothesis, ref_candles=ref_candles)
+    return ChatResponse(message=clean_message, hypothesis=hypothesis, ref_candles=ref_candles, ref_chart=ref_chart)
 
 
 def _build_chart_context(
@@ -105,7 +106,6 @@ def _build_chart_context(
         return "チャートデータなし"
 
     latest = candles[-1]
-    # 選択足がある場合はその足を基準価格として使う
     reference = selected_candles[-1] if selected_candles else latest
     context_parts = [
         f"通貨ペア: USD/JPY",
@@ -114,13 +114,11 @@ def _build_chart_context(
         f"データ本数: {len(candles)}本",
     ]
 
-    # Price range
     highs = [c.high for c in candles]
     lows = [c.low for c in candles]
     context_parts.append(f"期間高値: {max(highs)}")
     context_parts.append(f"期間安値: {min(lows)}")
 
-    # Latest indicators
     if indicators:
         latest_ind = indicators[-1]
         ind_parts = []
@@ -138,22 +136,30 @@ def _build_chart_context(
             ind_parts.append(f"BB上限: {latest_ind.bb_upper}")
         if latest_ind.bb_lower is not None:
             ind_parts.append(f"BB下限: {latest_ind.bb_lower}")
-
         if ind_parts:
             context_parts.append("テクニカル指標: " + ", ".join(ind_parts))
-
-        # Trend summary
         if latest_ind.sma_20 and latest_ind.sma_50:
             if latest_ind.sma_20 > latest_ind.sma_50:
                 context_parts.append("トレンド: 短期MA > 長期MA（上昇傾向）")
             else:
                 context_parts.append("トレンド: 短期MA < 長期MA（下降傾向）")
-
         if latest_ind.rsi:
             if latest_ind.rsi > 70:
                 context_parts.append("RSI状態: 買われすぎ圏")
             elif latest_ind.rsi < 30:
                 context_parts.append("RSI状態: 売られすぎ圏")
+
+    # 直近20本のローソク足（C#1=最古、C#20=最新）
+    context_window = candles[-20:]
+    selected_ts = {c.timestamp for c in (selected_candles or [])}
+    context_parts.append(f"\n## 直近{len(context_window)}本のローソク足一覧（C#1=最古、C#{len(context_window)}=最新）")
+    for i, c in enumerate(context_window, 1):
+        direction = "↑陽線" if c.close >= c.open else "↓陰線"
+        star = "★選択中 " if c.timestamp in selected_ts else ""
+        context_parts.append(
+            f"  C#{i} {star}{c.timestamp} {direction} O:{c.open} H:{c.high} L:{c.low} C:{c.close}"
+        )
+    context_parts.append(f"※ ref_chart で上記のC#番号を参照できます")
 
     return "\n".join(context_parts)
 
@@ -238,7 +244,7 @@ def _extract_hypothesis(ai_message: str) -> HypothesisData | None:
 
 
 def _extract_ref_candles(ai_message: str) -> list[int] | None:
-    """Extract referenced candle numbers from <!-- ref_candles:[1,2] --> marker."""
+    """Extract selected-candle references from <!-- ref_candles:[1,2] --> marker."""
     match = re.search(r'<!--\s*ref_candles:\s*\[([^\]]*)\]\s*-->', ai_message)
     if not match:
         return None
@@ -246,6 +252,17 @@ def _extract_ref_candles(ai_message: str) -> list[int] | None:
     return nums if nums else None
 
 
-def _strip_ref_candles(ai_message: str) -> str:
-    """Remove the ref_candles marker from the message for clean display."""
-    return re.sub(r'\s*<!--\s*ref_candles:\s*\[[^\]]*\]\s*-->', '', ai_message).strip()
+def _extract_ref_chart(ai_message: str) -> list[int] | None:
+    """Extract chart-candle references from <!-- ref_chart:[5,6] --> marker."""
+    match = re.search(r'<!--\s*ref_chart:\s*\[([^\]]*)\]\s*-->', ai_message)
+    if not match:
+        return None
+    nums = [int(n.strip()) for n in match.group(1).split(',') if n.strip().isdigit()]
+    return nums if nums else None
+
+
+def _strip_ref_markers(ai_message: str) -> str:
+    """Remove all ref markers from the message for clean display."""
+    msg = re.sub(r'\s*<!--\s*ref_candles:\s*\[[^\]]*\]\s*-->', '', ai_message)
+    msg = re.sub(r'\s*<!--\s*ref_chart:\s*\[[^\]]*\]\s*-->', '', msg)
+    return msg.strip()

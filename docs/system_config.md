@@ -64,7 +64,10 @@
 | frontend/src/components/ChatPanel.tsx | AIチャットUI |
 | frontend/src/components/ChartControls.tsx | 時間足・指標コントロール |
 | frontend/src/components/HypothesisPanel.tsx | 仮説表示パネル |
-| frontend/src/vite-env.d.ts | Vite型定義 |
+| frontend/src/components/PatternLibrary.tsx | パターン集ページ（18パターンSVGカード） |
+| frontend/src/components/PatternSidebar.tsx | パターン分析サイドバー（畳める・localStorage保持） |
+| frontend/src/components/Glossary.tsx | 用語集ページ（4カテゴリ42用語） |
+| frontend/src/data/candlePatterns.ts | ローソク足パターン定義・matchPattern関数 |
 
 ---
 
@@ -115,3 +118,4 @@
 | 2026-06-30 | Python venv対応。requirements.txt を >=形式に更新。.venv/ 追加 |
 | 2026-06-30 | mac/ フォルダ追加。setup.command / start.command 追加 |
 | 2026-07-01 | TWELVEDATA_API_KEY追加。定数にDEFAULT_INTERVAL/PERIOD/AUTO_REFRESH/LIVE_PRICE追加 |
+| 2026-07-01 | RSIサブチャート追加（rsiChartHeight定数追加）。PatternLibrary/PatternSidebar/Glossary/candlePatterns追加 |
