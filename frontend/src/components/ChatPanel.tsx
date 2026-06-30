@@ -2,7 +2,8 @@
  * ChatPanel component - AI conversation interface.
  */
 
-import { useState, useRef, useEffect } from 'react'
+import { useRef, useEffect } from 'react'
+import { useState } from 'react'
 import type { ChatMessage, HypothesisData, CandleData } from '@/types'
 import { sendChatMessage } from '@/services/api'
 
@@ -11,10 +12,11 @@ interface Props {
   interval: string
   selectedCandles: CandleData[]
   onHypothesis: (h: HypothesisData) => void
+  messages: ChatMessage[]
+  onMessagesChange: (updater: (prev: ChatMessage[]) => ChatMessage[]) => void
 }
 
-export function ChatPanel({ pair, interval, selectedCandles, onHypothesis }: Props) {
-  const [messages, setMessages] = useState<ChatMessage[]>([])
+export function ChatPanel({ pair, interval, selectedCandles, onHypothesis, messages, onMessagesChange }: Props) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -28,14 +30,14 @@ export function ChatPanel({ pair, interval, selectedCandles, onHypothesis }: Pro
     if (!text || loading) return
 
     const userMsg: ChatMessage = { role: 'user', content: text }
-    setMessages(prev => [...prev, userMsg])
+    onMessagesChange(prev => [...prev, userMsg])
     setInput('')
     setLoading(true)
 
     try {
       const response = await sendChatMessage(text, messages, pair, interval, selectedCandles)
       const assistantMsg: ChatMessage = { role: 'assistant', content: response.message }
-      setMessages(prev => [...prev, assistantMsg])
+      onMessagesChange(prev => [...prev, assistantMsg])
 
       if (response.hypothesis) {
         onHypothesis(response.hypothesis)
@@ -45,7 +47,7 @@ export function ChatPanel({ pair, interval, selectedCandles, onHypothesis }: Pro
         role: 'assistant',
         content: 'エラーが発生しました。もう一度お試しください。',
       }
-      setMessages(prev => [...prev, errorMsg])
+      onMessagesChange(prev => [...prev, errorMsg])
     } finally {
       setLoading(false)
     }

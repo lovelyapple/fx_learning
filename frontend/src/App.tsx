@@ -12,7 +12,7 @@ import { PatternSidebar } from '@/components/PatternSidebar'
 import { Glossary } from '@/components/Glossary'
 import { fetchChart, fetchLivePrice } from '@/services/api'
 import { config } from '@/config'
-import type { CandleData, IndicatorData, HypothesisData } from '@/types'
+import type { CandleData, IndicatorData, HypothesisData, ChatMessage } from '@/types'
 
 const SIDEBAR_KEY = 'fx_pattern_sidebar_open'
 
@@ -36,6 +36,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(
     () => localStorage.getItem(SIDEBAR_KEY) === 'true'
   )
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
 
   const toggleSidebar = () => {
     setSidebarOpen(prev => {
@@ -185,6 +186,8 @@ export default function App() {
               interval={interval}
               selectedCandles={selectedCandles}
               onHypothesis={handleHypothesis}
+              messages={chatMessages}
+              onMessagesChange={setChatMessages}
             />
           </div>
         </div>
