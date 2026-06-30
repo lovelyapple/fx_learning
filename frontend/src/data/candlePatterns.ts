@@ -189,12 +189,12 @@ export const candlePatterns: CandlePattern[] = [
     nameEn: 'Strong Bullish',
     sign: 'bullish',
     signLabel: '強気',
-    description: '実体が大きく、上昇を示す陽線。',
+    description: '実体が大きく（レンジの65%超）、上昇を示す陽線。',
     meaning: '買い圧力が強い状態。上昇モメンタムが継続していることを示す。',
     svg: { highN: 0.05, bodyTopN: 0.08, bodyBottomN: 0.87, lowN: 0.95, bull: true },
     score: (c) => {
       const r = ratios(c)
-      if (r.bull && r.body > 0.6) return 0.65
+      if (r.bull && r.body > 0.65) return 0.75
       return 0
     },
   },
@@ -204,12 +204,104 @@ export const candlePatterns: CandlePattern[] = [
     nameEn: 'Strong Bearish',
     sign: 'bearish',
     signLabel: '弱気',
-    description: '実体が大きく、下落を示す陰線。',
+    description: '実体が大きく（レンジの65%超）、下落を示す陰線。',
     meaning: '売り圧力が強い状態。下落モメンタムが継続していることを示す。',
     svg: { highN: 0.05, bodyTopN: 0.08, bodyBottomN: 0.87, lowN: 0.95, bull: false },
     score: (c) => {
       const r = ratios(c)
-      if (!r.bull && r.body > 0.6) return 0.65
+      if (!r.bull && r.body > 0.65) return 0.75
+      return 0
+    },
+  },
+  {
+    id: 'small_bull',
+    name: '小陽線',
+    nameEn: 'Small Bullish',
+    sign: 'bullish',
+    signLabel: '弱い強気',
+    description: '中程度の実体を持つ陽線。上下にひげがある。',
+    meaning: '買い優勢だが強い勢いはない。上昇傾向の中での一歩。トレンドの継続や様子見を示す。',
+    svg: { highN: 0.1, bodyTopN: 0.22, bodyBottomN: 0.68, lowN: 0.9, bull: true },
+    score: (c) => {
+      const r = ratios(c)
+      if (r.bull && r.body >= 0.3 && r.body <= 0.65) return 0.6
+      if (r.bull && r.body > 0.15) return 0.35
+      return 0
+    },
+  },
+  {
+    id: 'small_bear',
+    name: '小陰線',
+    nameEn: 'Small Bearish',
+    sign: 'bearish',
+    signLabel: '弱い弱気',
+    description: '中程度の実体を持つ陰線。上下にひげがある。',
+    meaning: '売り優勢だが強い勢いはない。下落傾向の中での一歩。トレンドの継続や様子見を示す。',
+    svg: { highN: 0.1, bodyTopN: 0.22, bodyBottomN: 0.68, lowN: 0.9, bull: false },
+    score: (c) => {
+      const r = ratios(c)
+      if (!r.bull && r.body >= 0.3 && r.body <= 0.65) return 0.6
+      if (!r.bull && r.body > 0.15) return 0.35
+      return 0
+    },
+  },
+  {
+    id: 'upper_shadow_bull',
+    name: '上影陽線',
+    nameEn: 'Upper Shadow Bullish',
+    sign: 'bullish',
+    signLabel: '弱い強気（上値警戒）',
+    description: '上方向に長いひげを持つ陽線。実体はレンジ下部にある。',
+    meaning: '買いが上値を試みたが押し返された。それでも陽線で引けており、わずかに買い優勢。高値圏では上昇力の弱まりを示すことも。',
+    svg: { highN: 0.05, bodyTopN: 0.6, bodyBottomN: 0.88, lowN: 0.92, bull: true },
+    score: (c) => {
+      const r = ratios(c)
+      if (r.bull && r.upper > 0.35 && r.body >= 0.15 && r.body < 0.45 && r.lower < 0.25) return 0.65
+      return 0
+    },
+  },
+  {
+    id: 'upper_shadow_bear',
+    name: '上影陰線',
+    nameEn: 'Upper Shadow Bearish',
+    sign: 'bearish',
+    signLabel: '弱気（上値抵抗）',
+    description: '上方向に長いひげを持つ陰線。実体はレンジ下部にある。',
+    meaning: '買いが上値を試みたが完全に押し返され、陰線で引けた。上値での売り圧力が強く、下落サインとなることが多い。',
+    svg: { highN: 0.05, bodyTopN: 0.6, bodyBottomN: 0.88, lowN: 0.92, bull: false },
+    score: (c) => {
+      const r = ratios(c)
+      if (!r.bull && r.upper > 0.35 && r.body >= 0.15 && r.body < 0.45 && r.lower < 0.25) return 0.65
+      return 0
+    },
+  },
+  {
+    id: 'lower_shadow_bull',
+    name: '下影陽線',
+    nameEn: 'Lower Shadow Bullish',
+    sign: 'bullish',
+    signLabel: '強気（下値サポート）',
+    description: '下方向に長いひげを持つ陽線。実体はレンジ上部にある。',
+    meaning: '一度は売られたが買いが入り陽線で引けた。下値の買い支えが確認でき、上昇継続のサインとなりやすい。',
+    svg: { highN: 0.08, bodyTopN: 0.12, bodyBottomN: 0.4, lowN: 0.95, bull: true },
+    score: (c) => {
+      const r = ratios(c)
+      if (r.bull && r.lower > 0.35 && r.body >= 0.15 && r.body < 0.45 && r.upper < 0.25) return 0.65
+      return 0
+    },
+  },
+  {
+    id: 'lower_shadow_bear',
+    name: '下影陰線',
+    nameEn: 'Lower Shadow Bearish',
+    sign: 'bearish',
+    signLabel: '弱気（下値試し）',
+    description: '下方向に長いひげを持つ陰線。実体はレンジ上部にある。',
+    meaning: '下値を試みたが反発し陰線で引けた。下落トレンド中に出現すると下げ継続、高値圏では反転の予兆になることも。',
+    svg: { highN: 0.08, bodyTopN: 0.12, bodyBottomN: 0.4, lowN: 0.95, bull: false },
+    score: (c) => {
+      const r = ratios(c)
+      if (!r.bull && r.lower > 0.35 && r.body >= 0.15 && r.body < 0.45 && r.upper < 0.25) return 0.65
       return 0
     },
   },
