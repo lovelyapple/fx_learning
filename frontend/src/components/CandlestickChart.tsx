@@ -42,11 +42,11 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
 
     chartRef.current = chart
     candleSeriesRef.current = chart.addCandlestickSeries({
-      upColor: '#26a69a',
-      downColor: '#ef5350',
+      upColor: '#ef5350',
+      downColor: '#26a69a',
       borderVisible: false,
-      wickUpColor: '#26a69a',
-      wickDownColor: '#ef5350',
+      wickUpColor: '#ef5350',
+      wickDownColor: '#26a69a',
     })
 
     const handleResize = () => {
