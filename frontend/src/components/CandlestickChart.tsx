@@ -34,11 +34,18 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
   const hoverSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
   const lineSeriesRefs = useRef<Map<string, ISeriesApi<'Line'>>>(new Map())
   const rsiSeriesListRef = useRef<ISeriesApi<'Line'>[]>([])
-  const refSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
 
   const selectedCandlesRef = useRef<CandleData[]>([])
   const selectedMarkersRef = useRef<SeriesMarker<Time>[]>([])
+  const refMarkersRef = useRef<SeriesMarker<Time>[]>([])
   const hoveredCandleRef = useRef<CandleData | null>(null)
+
+  const syncMarkers = () => {
+    if (!candleSeriesRef.current) return
+    const merged = [...selectedMarkersRef.current, ...refMarkersRef.current]
+      .sort((a, b) => (a.time as number) - (b.time as number))
+    candleSeriesRef.current.setMarkers(merged)
+  }
 
   const candlesRef = useRef<CandleData[]>([])
   const onSelectionChangeRef = useRef(onSelectionChange)
@@ -108,15 +115,6 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
       lastValueVisible: false, priceLineVisible: false,
     })
 
-    // AIハイライト（オレンジ）
-    refSeriesRef.current = chart.addCandlestickSeries({
-      upColor: 'rgba(255,152,0,0.5)', downColor: 'rgba(255,152,0,0.5)',
-      borderVisible: true,
-      borderUpColor: '#ff9800', borderDownColor: '#ff9800',
-      wickUpColor: '#ff9800', wickDownColor: '#ff9800',
-      lastValueVisible: false, priceLineVisible: false,
-    })
-
     // crosshairが動いたときにホバーしているローソク足を追跡
     chart.subscribeCrosshairMove((param) => {
       const all = candlesRef.current
@@ -153,7 +151,6 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
       candleSeriesRef.current = null
       selectionSeriesRef.current = null
       hoverSeriesRef.current = null
-      refSeriesRef.current = null
       lineSeriesRefs.current.clear()
     }
   }, [])
@@ -213,7 +210,7 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     })))
     // 選択状態を再適用（解除しない）
     if (selectedMarkersRef.current.length) {
-      candleSeriesRef.current.setMarkers(selectedMarkersRef.current)
+      syncMarkers()
     }
     if (selectionSeriesRef.current && selectedCandlesRef.current.length) {
       selectionSeriesRef.current.setData(selectedCandlesRef.current.map(c => ({
@@ -268,21 +265,27 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     }
   }, [indicators, visibleIndicators, hypothesis, candles])
 
-  // AI referenced candles highlight (orange)
+  // AI referenced candles highlight — orange arrow markers
   useEffect(() => {
-    if (!refSeriesRef.current) return
+    if (!candleSeriesRef.current) return
     if (!refHighlightIndices || refHighlightIndices.length === 0 || !selectedCandles || !selectedCandles.length) {
-      refSeriesRef.current.setData([])
+      refMarkersRef.current = []
+      syncMarkers()
       return
     }
-    const refData = refHighlightIndices
+    const markers: SeriesMarker<Time>[] = refHighlightIndices
       .map(idx => selectedCandles[idx - 1])
       .filter(Boolean)
       .map(c => ({
-        time: (new Date(c.timestamp).getTime() / 1000) as any,
-        open: c.open, high: c.high, low: c.low, close: c.close,
+        time: (new Date(c.timestamp).getTime() / 1000) as Time,
+        position: 'belowBar' as const,
+        color: '#ff9800',
+        shape: 'arrowUp' as const,
+        text: `AI`,
+        size: 1,
       }))
-    refSeriesRef.current.setData(refData)
+    refMarkersRef.current = markers
+    syncMarkers()
   }, [refHighlightIndices, selectedCandles])
 
   // RSI sub-chart rendering
@@ -362,9 +365,10 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
       startX = getX(e)
       overlay.style.display = 'none'
       selectionSeriesRef.current?.setData([])
-      candleSeriesRef.current?.setMarkers([])
       selectedCandlesRef.current = []
       selectedMarkersRef.current = []
+      refMarkersRef.current = []
+      syncMarkers()
       onSingleCandleClickRef.current?.(null)
       onSelectionChangeRef.current?.([])
     }
@@ -426,16 +430,17 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
           selectionSeriesRef.current?.setData([{
             time: t, open: candle.open, high: candle.high, low: candle.low, close: candle.close,
           }])
-          candleSeriesRef.current?.setMarkers(markers)
           selectedCandlesRef.current = [candle]
           selectedMarkersRef.current = markers
+          syncMarkers()
           onSingleCandleClickRef.current?.(candle)
           onSelectionChangeRef.current?.([candle])
         } else {
           selectionSeriesRef.current?.setData([])
-          candleSeriesRef.current?.setMarkers([])
           selectedCandlesRef.current = []
           selectedMarkersRef.current = []
+          refMarkersRef.current = []
+          syncMarkers()
           onSingleCandleClickRef.current?.(null)
           onSelectionChangeRef.current?.([])
         }
@@ -456,9 +461,9 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
           text: String(i + 1),
           size: 0,
         }))
-        candleSeriesRef.current?.setMarkers(markers)
         selectedCandlesRef.current = selected
         selectedMarkersRef.current = markers
+        syncMarkers()
       }
       onSelectionChangeRef.current?.(selected)
     }
