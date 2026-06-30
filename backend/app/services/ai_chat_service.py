@@ -25,6 +25,7 @@ async def chat_with_ai(
     history: list[ChatMessage],
     candles: list[CandleData],
     indicators: list[IndicatorData],
+    selected_candles: list[CandleData] | None = None,
 ) -> ChatResponse:
     """Send a message to AI with chart context.
 
@@ -45,10 +46,11 @@ async def chat_with_ai(
         )
 
     system_prompt = settings.load_system_prompt()
-    chart_context = _build_chart_context(candles, indicators)
+    chart_context = _build_chart_context(candles, indicators, selected_candles or [])
+    selected_context = _build_selected_context(selected_candles or [])
 
     messages = [
-        {"role": "system", "content": f"{system_prompt}\n\n## 現在のチャート状況\n{chart_context}"},
+        {"role": "system", "content": f"{system_prompt}\n\n## 現在のチャート状況\n{chart_context}{selected_context}"},
     ]
 
     # Add history (limited)
@@ -93,6 +95,7 @@ async def chat_with_ai(
 def _build_chart_context(
     candles: list[CandleData],
     indicators: list[IndicatorData],
+    selected_candles: list[CandleData] | None = None,
 ) -> str:
     """Build a summary of chart data for AI context."""
     if not candles:
@@ -148,6 +151,39 @@ def _build_chart_context(
                 context_parts.append("RSI状態: 売られすぎ圏")
 
     return "\n".join(context_parts)
+
+
+def _build_selected_context(selected_candles: list[CandleData]) -> str:
+    """Build a detailed summary of user-selected candles."""
+    if not selected_candles:
+        return ""
+
+    first = selected_candles[0]
+    last = selected_candles[-1]
+    highs = [c.high for c in selected_candles]
+    lows = [c.low for c in selected_candles]
+    opens = [c.open for c in selected_candles]
+    closes = [c.close for c in selected_candles]
+
+    up_count = sum(1 for c in selected_candles if c.close >= c.open)
+    down_count = len(selected_candles) - up_count
+    net_change = round(last.close - first.open, 3)
+    net_pct = round((net_change / first.open) * 100, 3)
+
+    lines = [
+        f"\n## ユーザーが選択したローソク足（{len(selected_candles)}本）",
+        f"期間: {first.timestamp} 〜 {last.timestamp}",
+        f"始値: {first.open}　終値: {last.close}",
+        f"期間高値: {max(highs)}　期間安値: {min(lows)}",
+        f"変動幅: {net_change} ({net_pct}%)",
+        f"陽線: {up_count}本　陰線: {down_count}本",
+        "OHLC一覧:",
+    ]
+    for c in selected_candles:
+        direction = "↑" if c.close >= c.open else "↓"
+        lines.append(f"  {c.timestamp} {direction} O:{c.open} H:{c.high} L:{c.low} C:{c.close}")
+
+    return "\n".join(lines)
 
 
 def _extract_hypothesis(ai_message: str) -> HypothesisData | None:

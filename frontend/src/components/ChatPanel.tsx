@@ -3,16 +3,17 @@
  */
 
 import { useState, useRef, useEffect } from 'react'
-import type { ChatMessage, HypothesisData } from '@/types'
+import type { ChatMessage, HypothesisData, CandleData } from '@/types'
 import { sendChatMessage } from '@/services/api'
 
 interface Props {
   pair: string
   interval: string
+  selectedCandles: CandleData[]
   onHypothesis: (h: HypothesisData) => void
 }
 
-export function ChatPanel({ pair, interval, onHypothesis }: Props) {
+export function ChatPanel({ pair, interval, selectedCandles, onHypothesis }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -32,7 +33,7 @@ export function ChatPanel({ pair, interval, onHypothesis }: Props) {
     setLoading(true)
 
     try {
-      const response = await sendChatMessage(text, messages, pair, interval)
+      const response = await sendChatMessage(text, messages, pair, interval, selectedCandles)
       const assistantMsg: ChatMessage = { role: 'assistant', content: response.message }
       setMessages(prev => [...prev, assistantMsg])
 
@@ -62,6 +63,9 @@ export function ChatPanel({ pair, interval, onHypothesis }: Props) {
       <div className="chat-header">
         <h3>🤖 AI アシスタント</h3>
         <span className="disclaimer">学習目的のみ・投資助言ではありません</span>
+        {selectedCandles.length > 0 && (
+          <span className="selection-badge">📌 {selectedCandles.length}本選択中</span>
+        )}
       </div>
 
       <div className="chat-messages">
@@ -94,7 +98,9 @@ export function ChatPanel({ pair, interval, onHypothesis }: Props) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="質問を入力... (Enter で送信、Shift+Enter で改行)"
+          placeholder={selectedCandles.length > 0
+            ? `${selectedCandles.length}本のローソク足について質問... (Enter で送信)`
+            : '質問を入力... (Enter で送信、Shift+Enter で改行)'}
           disabled={loading}
           rows={2}
         />

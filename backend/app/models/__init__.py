@@ -58,6 +58,7 @@ class ChatRequest(BaseModel):
     pair: str = ""
     interval: str = ""
     period: str = ""
+    selected_candles: list[CandleData] | None = None
 
 
 class HypothesisData(BaseModel):

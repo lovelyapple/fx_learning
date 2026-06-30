@@ -4,7 +4,7 @@
  */
 
 import { config } from '@/config'
-import type { ChartResponse, ChatMessage, ChatResponse, IndicatorInfo } from '@/types'
+import type { ChartResponse, ChatMessage, ChatResponse, IndicatorInfo, CandleData } from '@/types'
 
 const API_PREFIX = '/api'
 
@@ -37,7 +37,8 @@ export async function sendChatMessage(
   message: string,
   history: ChatMessage[],
   pair?: string,
-  interval?: string
+  interval?: string,
+  selectedCandles?: CandleData[]
 ): Promise<ChatResponse> {
   return fetchJson<ChatResponse>(`${API_PREFIX}/chat?session_id=default`, {
     method: 'POST',
@@ -46,6 +47,7 @@ export async function sendChatMessage(
       history,
       pair: pair || config.defaultPair,
       interval: interval || config.defaultInterval,
+      selected_candles: selectedCandles?.length ? selectedCandles : undefined,
     }),
   })
 }

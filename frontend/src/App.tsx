@@ -18,6 +18,7 @@ export default function App() {
   const [candles, setCandles] = useState<CandleData[]>([])
   const [indicators, setIndicators] = useState<IndicatorData[]>([])
   const [hypothesis, setHypothesis] = useState<HypothesisData | null>(null)
+  const [selectedCandles, setSelectedCandles] = useState<CandleData[]>([])
   const [visibleIndicators, setVisibleIndicators] = useState<string[]>(['sma_20', 'sma_50'])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -90,6 +91,7 @@ export default function App() {
             indicators={indicators}
             hypothesis={hypothesis}
             visibleIndicators={visibleIndicators}
+            onSelectionChange={setSelectedCandles}
           />
 
           <HypothesisPanel hypothesis={hypothesis} />
@@ -99,6 +101,7 @@ export default function App() {
           <ChatPanel
             pair={pair}
             interval={interval}
+            selectedCandles={selectedCandles}
             onHypothesis={handleHypothesis}
           />
         </div>

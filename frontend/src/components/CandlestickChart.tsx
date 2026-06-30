@@ -1,9 +1,10 @@
 /**
  * CandlestickChart component using TradingView Lightweight Charts.
  * Displays OHLC candles with optional indicator overlays.
+ * Supports drag-to-select candle range for AI context.
  */
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createChart, IChartApi, ISeriesApi, CandlestickData, LineData } from 'lightweight-charts'
 import { config } from '@/config'
 import type { CandleData, IndicatorData, HypothesisData } from '@/types'
@@ -13,13 +14,20 @@ interface Props {
   indicators: IndicatorData[]
   hypothesis: HypothesisData | null
   visibleIndicators: string[]
+  onSelectionChange?: (selected: CandleData[]) => void
 }
 
-export function CandlestickChart({ candles, indicators, hypothesis, visibleIndicators }: Props) {
+export function CandlestickChart({ candles, indicators, hypothesis, visibleIndicators, onSelectionChange }: Props) {
+  const wrapperRef = useRef<HTMLDivElement>(null)
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
   const lineSeriesRefs = useRef<Map<string, ISeriesApi<'Line'>>>(new Map())
+
+  // Selection state
+  const isDragging = useRef(false)
+  const dragStartX = useRef(0)
+  const [selectionRect, setSelectionRect] = useState<{ left: number; width: number } | null>(null)
 
   // Initialize chart
   useEffect(() => {
@@ -84,7 +92,6 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
   useEffect(() => {
     if (!chartRef.current || !indicators.length) return
 
-    // Clear old line series
     lineSeriesRefs.current.forEach((series) => {
       chartRef.current?.removeSeries(series)
     })
@@ -122,19 +129,16 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
       lineSeriesRefs.current.set(id, series)
     }
 
-    // Draw hypothesis lines
     if (hypothesis) {
       if (hypothesis.target_price) {
         const targetSeries = chartRef.current.addLineSeries({
           color: '#4caf50',
           lineWidth: 2,
-          lineStyle: 2, // dashed
+          lineStyle: 2,
           title: `Target: ${hypothesis.target_price}`,
         })
         const lastTime = (new Date(candles[candles.length - 1].timestamp).getTime() / 1000) as any
-        targetSeries.setData([
-          { time: lastTime, value: hypothesis.target_price },
-        ])
+        targetSeries.setData([{ time: lastTime, value: hypothesis.target_price }])
         lineSeriesRefs.current.set('hypothesis_target', targetSeries)
       }
       if (hypothesis.stop_price) {
@@ -145,18 +149,97 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
           title: `Stop: ${hypothesis.stop_price}`,
         })
         const lastTime = (new Date(candles[candles.length - 1].timestamp).getTime() / 1000) as any
-        stopSeries.setData([
-          { time: lastTime, value: hypothesis.stop_price },
-        ])
+        stopSeries.setData([{ time: lastTime, value: hypothesis.stop_price }])
         lineSeriesRefs.current.set('hypothesis_stop', stopSeries)
       }
     }
   }, [indicators, visibleIndicators, hypothesis, candles])
 
+  // --- Drag selection handlers ---
+  const getRelativeX = (e: React.MouseEvent) => {
+    const rect = wrapperRef.current?.getBoundingClientRect()
+    return rect ? e.clientX - rect.left : 0
+  }
+
+  const resolveSelectedCandles = (x1: number, x2: number): CandleData[] => {
+    const chart = chartRef.current
+    if (!chart || !candles.length) return []
+    const left = Math.min(x1, x2)
+    const right = Math.max(x1, x2)
+    const startTime = chart.timeScale().coordinateToTime(left) as number | null
+    const endTime = chart.timeScale().coordinateToTime(right) as number | null
+    if (startTime == null || endTime == null) return []
+    return candles.filter(c => {
+      const t = new Date(c.timestamp).getTime() / 1000
+      return t >= startTime && t <= endTime
+    })
+  }
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return
+    const x = getRelativeX(e)
+    isDragging.current = true
+    dragStartX.current = x
+    setSelectionRect(null)
+    onSelectionChange?.([])
+  }
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging.current) return
+    const x = getRelativeX(e)
+    const left = Math.min(dragStartX.current, x)
+    const width = Math.abs(x - dragStartX.current)
+    if (width > 4) {
+      setSelectionRect({ left, width })
+    }
+  }
+
+  const handleMouseUp = (e: React.MouseEvent) => {
+    if (!isDragging.current) return
+    isDragging.current = false
+    const x = getRelativeX(e)
+    const width = Math.abs(x - dragStartX.current)
+    if (width <= 4) {
+      // クリックのみ → 選択解除
+      setSelectionRect(null)
+      onSelectionChange?.([])
+    } else {
+      const selected = resolveSelectedCandles(dragStartX.current, x)
+      onSelectionChange?.(selected)
+    }
+  }
+
+  const handleMouseLeave = () => {
+    if (isDragging.current) {
+      isDragging.current = false
+    }
+  }
+
   return (
     <div
-      ref={chartContainerRef}
-      style={{ width: '100%', position: 'relative' }}
-    />
+      ref={wrapperRef}
+      style={{ width: '100%', position: 'relative', cursor: 'crosshair' }}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseLeave}
+    >
+      <div ref={chartContainerRef} />
+      {selectionRect && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: selectionRect.left,
+            width: selectionRect.width,
+            height: config.chartHeight,
+            background: 'rgba(79, 195, 247, 0.15)',
+            borderLeft: '1px solid rgba(79, 195, 247, 0.7)',
+            borderRight: '1px solid rgba(79, 195, 247, 0.7)',
+            pointerEvents: 'none',
+          }}
+        />
+      )}
+    </div>
   )
 }

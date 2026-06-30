@@ -69,6 +69,7 @@ async def post_chat(request: ChatRequest, session_id: str = Query(default="defau
         history=request.history,
         candles=recent_candles,
         indicators=recent_indicators,
+        selected_candles=request.selected_candles or [],
     )
 
     # Save to DB
