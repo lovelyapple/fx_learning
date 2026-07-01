@@ -85,6 +85,8 @@ body {
   grid-template-columns: 40px 1fr 380px;
   flex: 1;
   overflow: hidden;
+  height: 100%;  /* グリッドをflex-1コンテナに固定 */
+  align-items: stretch;
 }
 
 /* Chart Section */
@@ -93,6 +95,7 @@ body {
   flex-direction: column;
   overflow: hidden;
   border-right: 1px solid var(--border);
+  position: relative;  /* loading-overlay の絶対配置の基準 */
 }
 
 /* Chart Controls */
@@ -180,9 +183,16 @@ body {
 }
 
 .loading-overlay {
-  padding: 8px 16px;
+  position: absolute;  /* フローから外してレイアウトシフトを防止 */
+  top: 40px;
+  left: 0;
+  right: 0;
+  padding: 4px 16px;
   color: var(--accent);
   font-size: 0.85rem;
+  background: rgba(26,26,46,0.7);
+  z-index: 10;
+  pointer-events: none;
 }
 
 /* Hypothesis Panel */
