@@ -159,17 +159,18 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
 
     // ユーザーのスクロール/ズームをuserTimeRangeRefに保存 + RSI同期
     chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-      // データ更新中の自動スクロールは無視し、ユーザー操作のみ記録
       if (!isDataUpdateRef.current) {
         const tr = chart.timeScale().getVisibleRange()
-        if (tr) userTimeRangeRef.current = { from: tr.from as number, to: tr.to as number }
+        if (tr) {
+          console.log('[scroll] user range saved', tr.from, tr.to)
+          userTimeRangeRef.current = { from: tr.from as number, to: tr.to as number }
+        }
+      } else {
+        console.log('[scroll] BLOCKED (isDataUpdate=true)', range?.from, range?.to)
       }
-      // RSI同期（常に実行）
       const rsiChart = rsiChartRef.current
       if (!rsiChart || !range) return
-      try {
-        rsiChart.timeScale().setVisibleLogicalRange(range)
-      } catch {}
+      try { rsiChart.timeScale().setVisibleLogicalRange(range) } catch {}
     })
 
     return () => {
@@ -248,8 +249,10 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
 
     // setData()後の内部オートスクロールが完全に終わってから復元 (setTimeout > RAF)
     setTimeout(() => {
+      console.log('[candles timeout] saved=', saved, 'isDataUpdate before=', isDataUpdateRef.current)
       if (saved && chart) chart.timeScale().setVisibleRange({ from: saved.from as any, to: saved.to as any })
       isDataUpdateRef.current = false
+      console.log('[candles timeout] restored, isDataUpdate=false')
     }, 50)
   }, [candles])
 
@@ -300,8 +303,10 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     }
 
     setTimeout(() => {
+      console.log('[indicators timeout] saved=', saved, 'isDataUpdate before=', isDataUpdateRef.current)
       if (saved) chartRef.current?.timeScale().setVisibleRange({ from: saved.from as any, to: saved.to as any })
       isDataUpdateRef.current = false
+      console.log('[indicators timeout] restored, isDataUpdate=false')
     }, 50)
   }, [indicators, visibleIndicators, hypothesis, candles])
 
