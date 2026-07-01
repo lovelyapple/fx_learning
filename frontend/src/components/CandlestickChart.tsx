@@ -220,7 +220,17 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
   // Candle data
   useEffect(() => {
     if (!candleSeriesRef.current || !candles.length) return
-    const visibleRange = chartRef.current?.timeScale().getVisibleLogicalRange()
+
+    // 時刻ベースで中心時刻を保存（足の種類変更でインデックスが変わっても対応）
+    const chart = chartRef.current
+    const prevTimeRange = chart?.timeScale().getVisibleRange()
+    const prevCenterTime = prevTimeRange
+      ? ((prevTimeRange.from as number) + (prevTimeRange.to as number)) / 2
+      : null
+    const prevSpan = prevTimeRange
+      ? (prevTimeRange.to as number) - (prevTimeRange.from as number)
+      : null
+
     candleSeriesRef.current.setData(candles.map(c => ({
       time: (new Date(c.timestamp).getTime() / 1000) as any,
       open: c.open, high: c.high, low: c.low, close: c.close,
@@ -234,19 +244,23 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
         open: c.open, high: c.high, low: c.low, close: c.close,
       })))
     }
-    if (visibleRange) {
-      chartRef.current?.timeScale().setVisibleLogicalRange(visibleRange)
-      // setData後に非同期でリセットされるケースに備えてrafでも復元
-      requestAnimationFrame(() => {
-        chartRef.current?.timeScale().setVisibleLogicalRange(visibleRange)
-      })
+
+    if (prevCenterTime && prevSpan && chart) {
+      const restore = () => {
+        chart.timeScale().setVisibleRange({
+          from: (prevCenterTime - prevSpan / 2) as any,
+          to: (prevCenterTime + prevSpan / 2) as any,
+        })
+      }
+      restore()
+      requestAnimationFrame(restore)
     }
   }, [candles])
 
   // Indicators + hypothesis lines
   useEffect(() => {
     if (!chartRef.current || !indicators.length) return
-    const visibleRange = chartRef.current.timeScale().getVisibleLogicalRange()
+    const prevTimeRange = chartRef.current.timeScale().getVisibleRange()
     lineSeriesRefs.current.forEach(s => chartRef.current?.removeSeries(s))
     lineSeriesRefs.current.clear()
 
@@ -283,8 +297,8 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
         lineSeriesRefs.current.set('hypothesis_stop', s)
       }
     }
-    if (visibleRange) {
-      chartRef.current?.timeScale().setVisibleLogicalRange(visibleRange)
+    if (prevTimeRange) {
+      chartRef.current?.timeScale().setVisibleRange(prevTimeRange)
     }
   }, [indicators, visibleIndicators, hypothesis, candles])
 
