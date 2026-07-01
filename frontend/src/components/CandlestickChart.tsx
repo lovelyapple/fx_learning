@@ -40,6 +40,8 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
   const selectedMarkersRef = useRef<SeriesMarker<Time>[]>([])
   const refMarkersRef = useRef<SeriesMarker<Time>[]>([])
   const hoveredCandleRef = useRef<CandleData | null>(null)
+  // ユーザーが設定したスクロール位置を保持（データ更新時の復元用）
+  const userTimeRangeRef = useRef<{ from: number; to: number } | null>(null)
 
   const syncMarkers = () => {
     if (!candleSeriesRef.current) return
@@ -152,8 +154,12 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     })
     if (chartContainerRef.current) ro.observe(chartContainerRef.current)
 
-    // RSI同期: メインチャートのスクロール/ズームをRSIに反映（rsiChartRefは後から設定される）
+    // ユーザーのスクロール/ズームをuserTimeRangeRefに保存 + RSI同期
     chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+      // ユーザーが変更した表示範囲を記録
+      const tr = chart.timeScale().getVisibleRange()
+      if (tr) userTimeRangeRef.current = { from: tr.from as number, to: tr.to as number }
+      // RSI同期
       const rsiChart = rsiChartRef.current
       if (!rsiChart || !range) return
       try {
@@ -221,15 +227,8 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
   useEffect(() => {
     if (!candleSeriesRef.current || !candles.length) return
 
-    // 時刻ベースで中心時刻を保存（足の種類変更でインデックスが変わっても対応）
     const chart = chartRef.current
-    const prevTimeRange = chart?.timeScale().getVisibleRange()
-    const prevCenterTime = prevTimeRange
-      ? ((prevTimeRange.from as number) + (prevTimeRange.to as number)) / 2
-      : null
-    const prevSpan = prevTimeRange
-      ? (prevTimeRange.to as number) - (prevTimeRange.from as number)
-      : null
+    const saved = userTimeRangeRef.current
 
     candleSeriesRef.current.setData(candles.map(c => ({
       time: (new Date(c.timestamp).getTime() / 1000) as any,
@@ -245,13 +244,8 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
       })))
     }
 
-    if (prevCenterTime && prevSpan && chart) {
-      const restore = () => {
-        chart.timeScale().setVisibleRange({
-          from: (prevCenterTime - prevSpan / 2) as any,
-          to: (prevCenterTime + prevSpan / 2) as any,
-        })
-      }
+    if (saved && chart) {
+      const restore = () => chart.timeScale().setVisibleRange({ from: saved.from as any, to: saved.to as any })
       restore()
       requestAnimationFrame(restore)
     }
@@ -260,7 +254,7 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
   // Indicators + hypothesis lines
   useEffect(() => {
     if (!chartRef.current || !indicators.length) return
-    const prevTimeRange = chartRef.current.timeScale().getVisibleRange()
+    const saved = userTimeRangeRef.current
     lineSeriesRefs.current.forEach(s => chartRef.current?.removeSeries(s))
     lineSeriesRefs.current.clear()
 
@@ -297,11 +291,11 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
         lineSeriesRefs.current.set('hypothesis_stop', s)
       }
     }
-    // removeSeries が内部でcontentRefitを走らせるため rafで確実に復元
-    if (prevTimeRange) {
-      requestAnimationFrame(() => {
-        chartRef.current?.timeScale().setVisibleRange(prevTimeRange)
-      })
+    // removeSeries が内部でcontentRefitを走らせるため 同期+rafで確実に復元
+    if (saved) {
+      const restore = () => chartRef.current?.timeScale().setVisibleRange({ from: saved.from as any, to: saved.to as any })
+      restore()
+      requestAnimationFrame(restore)
     }
   }, [indicators, visibleIndicators, hypothesis, candles])
 
