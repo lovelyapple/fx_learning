@@ -98,11 +98,16 @@ body {
   position: relative;
 }
 
-/* チャートエリア: info-panelがない場合はflex:1で全体を使う */
+/* チャートエリア: info-panelがある場合はコンテンツサイズのみ、ない場合はflex:1 */
 .chart-area {
-  flex: 1;
+  flex-shrink: 0;
   overflow: hidden;
   min-height: 0;
+}
+
+.chart-area.chart-area-full,
+.chart-section:has(.info-panel-hidden) .chart-area {
+  flex: 1;
 }
 
 /* split-half: RSI+シナリオ両方開いている場合、50/50 */

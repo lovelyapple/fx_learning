@@ -191,7 +191,7 @@ export default function App() {
             {error && <div className="error-banner">{error}</div>}
             {loading && <div className="loading-overlay">読み込み中...</div>}
 
-            <div className="chart-area">
+            <div className={`chart-area${showInfoPanel ? '' : ' chart-area-full'}`}>
               <CandlestickChart
                 candles={candles}
                 indicators={indicators}
