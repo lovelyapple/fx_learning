@@ -219,13 +219,11 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
   // Candle data
   useEffect(() => {
     if (!candleSeriesRef.current || !candles.length) return
-    // 現在のvisible rangeを保存してピクッを防ぐ
     const visibleRange = chartRef.current?.timeScale().getVisibleLogicalRange()
     candleSeriesRef.current.setData(candles.map(c => ({
       time: (new Date(c.timestamp).getTime() / 1000) as any,
       open: c.open, high: c.high, low: c.low, close: c.close,
     })))
-    // 選択状態を再適用（解除しない）
     if (selectedMarkersRef.current.length) {
       syncMarkers()
     }
@@ -235,15 +233,19 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
         open: c.open, high: c.high, low: c.low, close: c.close,
       })))
     }
-    // visible rangeを復元
     if (visibleRange) {
       chartRef.current?.timeScale().setVisibleLogicalRange(visibleRange)
+      // setData後に非同期でリセットされるケースに備えてrafでも復元
+      requestAnimationFrame(() => {
+        chartRef.current?.timeScale().setVisibleLogicalRange(visibleRange)
+      })
     }
   }, [candles])
 
   // Indicators + hypothesis lines
   useEffect(() => {
     if (!chartRef.current || !indicators.length) return
+    const visibleRange = chartRef.current.timeScale().getVisibleLogicalRange()
     lineSeriesRefs.current.forEach(s => chartRef.current?.removeSeries(s))
     lineSeriesRefs.current.clear()
 
@@ -279,6 +281,9 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
         s.setData([{ time: lastTime, value: hypothesis.stop_price }])
         lineSeriesRefs.current.set('hypothesis_stop', s)
       }
+    }
+    if (visibleRange) {
+      chartRef.current?.timeScale().setVisibleLogicalRange(visibleRange)
     }
   }, [indicators, visibleIndicators, hypothesis, candles])
 
