@@ -152,6 +152,16 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     })
     if (chartContainerRef.current) ro.observe(chartContainerRef.current)
 
+    // RSI同期: メインチャートのスクロール/ズームをRSIに反映（rsiChartRefは後から設定される）
+    chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
+      const rsiChart = rsiChartRef.current
+      if (!rsiChart) return
+      try {
+        const range = chart.timeScale().getVisibleRange()
+        if (range) rsiChart.timeScale().setVisibleRange(range)
+      } catch {}
+    })
+
     return () => {
       window.removeEventListener('resize', handleResize)
       ro.disconnect()
@@ -187,13 +197,6 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     })
     rsiChartRef.current = rsiChart
 
-    // Sync: main chart の表示時刻変化を検知 → RSI に同じ時刻範囲を適用
-    chartRef.current?.timeScale().subscribeVisibleLogicalRangeChange(() => {
-      try {
-        const range = chartRef.current?.timeScale().getVisibleRange()
-        if (range) rsiChart.timeScale().setVisibleRange(range)
-      } catch {}
-    })
 
     const handleResize = () => {
       const w = externalRsiBodyRef?.current?.offsetWidth || chartContainerRef.current?.offsetWidth || 600
