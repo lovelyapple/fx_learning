@@ -227,32 +227,34 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
   // Candle data
   useEffect(() => {
     if (!candleSeriesRef.current || !candles.length) return
-    const chart = chartRef.current
-    const saved = userTimeRangeRef.current
-    isDataUpdateRef.current = true
-
     const toBar = (c: CandleData) => ({
       time: (new Date(c.timestamp).getTime() / 1000) as any,
       open: c.open, high: c.high, low: c.low, close: c.close,
     })
     candleSeriesRef.current.setData(candles.map(toBar))
-
     if (selectedMarkersRef.current.length) syncMarkers()
     if (selectionSeriesRef.current && selectedCandlesRef.current.length) {
       selectionSeriesRef.current.setData(selectedCandlesRef.current.map(toBar))
     }
-
-    // setData()後の内部オートスクロールが完全に終わってから復元 (setTimeout > RAF)
-    setTimeout(() => {
-      if (saved && chart) chart.timeScale().setVisibleRange({ from: saved.from as any, to: saved.to as any })
-      isDataUpdateRef.current = false
-    }, 50)
   }, [candles])
 
-  // Indicators + hypothesis lines
+  // Indicators: 構造変更時のみ series を rebuild（scroll resetを防ぐため）
   const indicatorsRef = useRef<IndicatorData[]>([])
   indicatorsRef.current = indicators
+  const hypothesisRef = useRef<HypothesisData | null>(null)
+  hypothesisRef.current = hypothesis
 
+  const indicatorConfigs: Record<string, { key: keyof IndicatorData; color: string; title: string }> = {
+    sma_20:    { key: 'sma_20',    color: '#ff9800', title: 'SMA 20' },
+    sma_50:    { key: 'sma_50',    color: '#2196f3', title: 'SMA 50' },
+    ema_12:    { key: 'ema_12',    color: '#9c27b0', title: 'EMA 12' },
+    ema_26:    { key: 'ema_26',    color: '#e91e63', title: 'EMA 26' },
+    bb_upper:  { key: 'bb_upper',  color: '#607d8b', title: 'BB Upper' },
+    bb_middle: { key: 'bb_middle', color: '#607d8b', title: 'BB Middle' },
+    bb_lower:  { key: 'bb_lower',  color: '#607d8b', title: 'BB Lower' },
+  }
+
+  // visibleIndicators / hypothesis が変わった時だけ series を作り直す
   useEffect(() => {
     if (!chartRef.current) return
     const saved = userTimeRangeRef.current
@@ -261,15 +263,6 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     lineSeriesRefs.current.clear()
 
     const inds = indicatorsRef.current
-    const indicatorConfigs: Record<string, { key: keyof IndicatorData; color: string; title: string }> = {
-      sma_20:    { key: 'sma_20',    color: '#ff9800', title: 'SMA 20' },
-      sma_50:    { key: 'sma_50',    color: '#2196f3', title: 'SMA 50' },
-      ema_12:    { key: 'ema_12',    color: '#9c27b0', title: 'EMA 12' },
-      ema_26:    { key: 'ema_26',    color: '#e91e63', title: 'EMA 26' },
-      bb_upper:  { key: 'bb_upper',  color: '#607d8b', title: 'BB Upper' },
-      bb_middle: { key: 'bb_middle', color: '#607d8b', title: 'BB Middle' },
-      bb_lower:  { key: 'bb_lower',  color: '#607d8b', title: 'BB Lower' },
-    }
     for (const id of visibleIndicators) {
       const cfg = indicatorConfigs[id]
       if (!cfg || !inds.length) continue
@@ -281,49 +274,65 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
       s.setData(data)
       lineSeriesRefs.current.set(id, s)
     }
-    if (hypothesis && candles.length) {
-      const lastTime = (new Date(candles[candles.length - 1].timestamp).getTime() / 1000) as any
-      if (hypothesis.target_price) {
-        const s = chartRef.current.addLineSeries({ color: '#4caf50', lineWidth: 2, lineStyle: 2, title: `Target: ${hypothesis.target_price}` })
-        s.setData([{ time: lastTime, value: hypothesis.target_price }])
+    const hypo = hypothesisRef.current
+    const lastInd = inds[inds.length - 1]
+    if (hypo && lastInd) {
+      const lastTime = (new Date(lastInd.timestamp).getTime() / 1000) as any
+      if (hypo.target_price) {
+        const s = chartRef.current.addLineSeries({ color: '#4caf50', lineWidth: 2, lineStyle: 2, title: `Target: ${hypo.target_price}` })
+        s.setData([{ time: lastTime, value: hypo.target_price }])
         lineSeriesRefs.current.set('hypothesis_target', s)
       }
-      if (hypothesis.stop_price) {
-        const s = chartRef.current.addLineSeries({ color: '#f44336', lineWidth: 2, lineStyle: 2, title: `Stop: ${hypothesis.stop_price}` })
-        s.setData([{ time: lastTime, value: hypothesis.stop_price }])
+      if (hypo.stop_price) {
+        const s = chartRef.current.addLineSeries({ color: '#f44336', lineWidth: 2, lineStyle: 2, title: `Stop: ${hypo.stop_price}` })
+        s.setData([{ time: lastTime, value: hypo.stop_price }])
         lineSeriesRefs.current.set('hypothesis_stop', s)
       }
     }
-
     setTimeout(() => {
       if (saved) chartRef.current?.timeScale().setVisibleRange({ from: saved.from as any, to: saved.to as any })
       isDataUpdateRef.current = false
     }, 50)
-  }, [indicators, visibleIndicators, hypothesis, candles])
+  }, [visibleIndicators, hypothesis]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // RSI sub-chart rendering
+  // Indicators: データ更新時は既存 series に setData() するだけ（removeSeries 不要）
+  useEffect(() => {
+    if (!lineSeriesRefs.current.size || !indicators.length) return
+    for (const [id, series] of lineSeriesRefs.current) {
+      const cfg = indicatorConfigs[id]
+      if (!cfg) continue
+      const data: LineData[] = indicators
+        .filter(ind => ind[cfg.key] !== null)
+        .map(ind => ({ time: (new Date(ind.timestamp).getTime() / 1000) as any, value: ind[cfg.key] as number }))
+      if (data.length) series.setData(data)
+    }
+    // hypothesis は位置更新だけ（candles の最後の時刻）
+    const hypo = hypothesisRef.current
+    const lastCandle = candlesRef.current[candlesRef.current.length - 1]
+    if (hypo && lastCandle) {
+      const lastTime = (new Date(lastCandle.timestamp).getTime() / 1000) as any
+      const hTarget = lineSeriesRefs.current.get('hypothesis_target')
+      if (hTarget && hypo.target_price) hTarget.setData([{ time: lastTime, value: hypo.target_price }])
+      const hStop = lineSeriesRefs.current.get('hypothesis_stop')
+      if (hStop && hypo.stop_price) hStop.setData([{ time: lastTime, value: hypo.stop_price }])
+    }
+  }, [indicators]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // RSI: visibleIndicators 変更時のみ series を rebuild
   useEffect(() => {
     const rsiChart = rsiChartRef.current
     if (!rsiChart) return
-
     rsiSeriesListRef.current.forEach(s => { try { rsiChart.removeSeries(s) } catch {} })
     rsiSeriesListRef.current = []
-
-    const showRsi = visibleIndicators.includes('rsi')
-    if (!showRsi || !indicators.length) return
-
+    if (!visibleIndicators.includes('rsi') || !indicatorsRef.current.length) return
     if (externalRsiBodyRef?.current) {
-      const w = chartContainerRef.current?.offsetWidth || 600
-      rsiChart.applyOptions({ width: w })
+      rsiChart.applyOptions({ width: chartContainerRef.current?.offsetWidth || 600 })
     }
-
-    const allData: (LineData | WhitespaceData)[] = indicators.map(ind => {
+    const allData: (LineData | WhitespaceData)[] = indicatorsRef.current.map(ind => {
       const time = (new Date(ind.timestamp).getTime() / 1000) as any
-      if (ind.rsi === null) return { time }
-      return { time, value: ind.rsi as number }
+      return ind.rsi === null ? { time } : { time, value: ind.rsi as number }
     })
-    if (!indicators.some(i => i.rsi !== null)) return
-
+    if (!indicatorsRef.current.some(i => i.rsi !== null)) return
     const rsiSeries = rsiChart.addLineSeries({ color: '#ce93d8', lineWidth: 2, title: 'RSI' })
     rsiSeries.setData(allData)
     const ob = rsiChart.addLineSeries({ color: 'rgba(244,67,54,0.6)', lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false })
@@ -331,12 +340,24 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     const os = rsiChart.addLineSeries({ color: 'rgba(76,175,80,0.6)', lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false })
     os.setData(allData.map(d => ({ time: d.time, value: 30 })))
     rsiSeriesListRef.current = [rsiSeries, ob, os]
-
     requestAnimationFrame(() => {
       const range = chartRef.current?.timeScale().getVisibleLogicalRange()
       if (range) rsiChart.timeScale().setVisibleLogicalRange(range)
     })
-  }, [indicators, visibleIndicators])
+  }, [visibleIndicators]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // RSI: データ更新時は既存 series に setData() するだけ
+  useEffect(() => {
+    const [rsiSeries, ob, os] = rsiSeriesListRef.current
+    if (!rsiSeries || !indicators.length) return
+    const allData: (LineData | WhitespaceData)[] = indicators.map(ind => {
+      const time = (new Date(ind.timestamp).getTime() / 1000) as any
+      return ind.rsi === null ? { time } : { time, value: ind.rsi as number }
+    })
+    rsiSeries.setData(allData)
+    ob.setData(allData.map(d => ({ time: d.time, value: 70 })))
+    os.setData(allData.map(d => ({ time: d.time, value: 30 })))
+  }, [indicators])
 
   // AI referenced candles highlight — merge both index and timestamp sources
   useEffect(() => {
