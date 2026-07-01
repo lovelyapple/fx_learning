@@ -95,7 +95,50 @@ body {
   flex-direction: column;
   overflow: hidden;
   border-right: 1px solid var(--border);
-  position: relative;  /* loading-overlay の絶対配置の基準 */
+  position: relative;
+}
+
+/* チャートエリア: info-panelがない場合はflex:1で全体を使う */
+.chart-area {
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* split-half: RSI+シナリオ両方開いている場合、50/50 */
+.chart-section.split-half .chart-area {
+  flex: 1 1 50%;
+}
+
+.chart-section.split-half .info-panel {
+  flex: 1 1 50%;
+}
+
+/* info-panel: スクロール可能な情報エリア */
+.info-panel {
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+  background: var(--bg-secondary);
+  min-height: 0;
+  flex-shrink: 0;
+}
+
+.chart-section.split-half .info-panel {
+  flex-shrink: 1;
+}
+
+.info-panel-label {
+  padding: 3px 8px;
+  font-size: 11px;
+  color: #888;
+  background: #1a1a2e;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.rsi-section {
+  display: flex;
+  flex-direction: column;
 }
 
 /* Chart Controls */

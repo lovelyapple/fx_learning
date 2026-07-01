@@ -20,13 +20,12 @@ interface Props {
   onSelectionChange?: (selected: CandleData[]) => void
   onSingleCandleClick?: (candle: CandleData | null) => void
   focusTimestamp?: string | null
+  rsiBodyRef?: React.RefObject<HTMLDivElement | null>  // RSIチャートをレンダリングするDOM(外部から渡す)
 }
 
-export function CandlestickChart({ candles, indicators, hypothesis, visibleIndicators, selectedCandles, refHighlightIndices, refHighlightTimestamps, onSelectionChange, onSingleCandleClick, focusTimestamp }: Props) {
+export function CandlestickChart({ candles, indicators, hypothesis, visibleIndicators, selectedCandles, refHighlightIndices, refHighlightTimestamps, onSelectionChange, onSingleCandleClick, focusTimestamp, rsiBodyRef: externalRsiBodyRef }: Props) {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const chartContainerRef = useRef<HTMLDivElement>(null)
-  const rsiContainerRef = useRef<HTMLDivElement>(null)
-  const rsiBodyRef = useRef<HTMLDivElement>(null)
   const captureRef = useRef<HTMLDivElement>(null)
   const selectionOverlayRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
@@ -165,14 +164,14 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     }
   }, [])
 
-  // RSI sub-chart init
+  // RSI sub-chart init — rsiBodyRef は外部(info-panel)から渡されたDOMに描画
   useEffect(() => {
-    if (!rsiBodyRef.current) return
+    const rsiBody = externalRsiBodyRef?.current
+    if (!rsiBody) return
 
-    // rsiBodyRef は display:none の中にある可能性があるため幅をフォールバック
-    const width = rsiBodyRef.current.offsetWidth || chartContainerRef.current?.offsetWidth || 600
+    const width = rsiBody.offsetWidth || chartContainerRef.current?.offsetWidth || 600
 
-    const rsiChart = createChart(rsiBodyRef.current, {
+    const rsiChart = createChart(rsiBody, {
       width,
       height: config.rsiChartHeight,
       layout: { background: { color: '#1a1a2e' }, textColor: '#d1d4dc' },
@@ -197,16 +196,16 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     })
 
     const handleResize = () => {
-      const w = rsiBodyRef.current?.offsetWidth || chartContainerRef.current?.offsetWidth || 600
+      const w = externalRsiBodyRef?.current?.offsetWidth || chartContainerRef.current?.offsetWidth || 600
       rsiChart.applyOptions({ width: w })
     }
     window.addEventListener('resize', handleResize)
 
     const roRsi = new ResizeObserver(() => {
-      const w = rsiBodyRef.current?.offsetWidth || chartContainerRef.current?.offsetWidth || 600
+      const w = externalRsiBodyRef?.current?.offsetWidth || chartContainerRef.current?.offsetWidth || 600
       rsiChart.applyOptions({ width: w })
     })
-    if (rsiBodyRef.current) roRsi.observe(rsiBodyRef.current)
+    if (externalRsiBodyRef?.current) roRsi.observe(externalRsiBodyRef.current)
 
     return () => {
       window.removeEventListener('resize', handleResize)
@@ -337,18 +336,14 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     const rsiChart = rsiChartRef.current
     if (!rsiChart) return
 
-    // Clear previous RSI series
     rsiSeriesListRef.current.forEach(s => { try { rsiChart.removeSeries(s) } catch {} })
     rsiSeriesListRef.current = []
 
     const showRsi = visibleIndicators.includes('rsi')
-    if (rsiContainerRef.current) {
-      rsiContainerRef.current.style.display = showRsi ? 'block' : 'none'
-    }
     if (!showRsi || !indicators.length) return
 
-    // 表示状態になってから正しい幅を適用
-    if (rsiBodyRef.current) {
+    // 外部コンテナの幅を適用
+    if (externalRsiBodyRef?.current) {
       const w = chartContainerRef.current?.offsetWidth || 600
       rsiChart.applyOptions({ width: w })
     }
@@ -554,12 +549,6 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     <div ref={wrapperRef} style={{ width: '100%', position: 'relative' }}>
       {/* チャート本体 */}
       <div ref={chartContainerRef} />
-
-      {/* RSIサブチャート */}
-      <div ref={rsiContainerRef} style={{ display: 'none', borderTop: '1px solid #2B2B43' }}>
-        <div style={{ padding: '2px 8px', fontSize: '11px', color: '#888', background: '#1a1a2e' }}>RSI (14) — 過買い:70 / 過売り:30</div>
-        <div ref={rsiBodyRef} />
-      </div>
 
       {/* 透明キャプチャ層: チャートの上に重なりマウスイベントを最初に受け取る */}
       <div

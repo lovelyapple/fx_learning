@@ -2,7 +2,7 @@
  * Main App component - FX Learning Application.
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { CandlestickChart } from '@/components/CandlestickChart'
 import { ChatPanel } from '@/components/ChatPanel'
 import { ChartControls } from '@/components/ChartControls'
@@ -40,6 +40,12 @@ export default function App() {
   const [refHighlightIndices, setRefHighlightIndices] = useState<number[]>([])
   const [refHighlightTimestamps, setRefHighlightTimestamps] = useState<string[]>([])
   const [focusTimestamp, setFocusTimestamp] = useState<string | null>(null)
+  const rsiBodyRef = useRef<HTMLDivElement>(null)
+
+  // info-panel の表示条件
+  const showRsi = visibleIndicators.includes('rsi')
+  const showInfoPanel = showRsi || !!hypothesis
+  const showHalf = showRsi && !!hypothesis  // 両方開いている場合は50/50
 
   const handleHighlightCandles = useCallback((indices: number[], _source: 'selected') => {
     setRefHighlightIndices(indices)
@@ -170,7 +176,7 @@ export default function App() {
             selectedCandle={singleSelectedCandle}
           />
 
-          <div className="chart-section">
+          <div className={`chart-section${showInfoPanel ? ' has-info-panel' : ''}${showHalf ? ' split-half' : ''}`}>
             <ChartControls
               pair={pair}
               interval={interval}
@@ -185,20 +191,33 @@ export default function App() {
             {error && <div className="error-banner">{error}</div>}
             {loading && <div className="loading-overlay">読み込み中...</div>}
 
-            <CandlestickChart
-              candles={candles}
-              indicators={indicators}
-              hypothesis={hypothesis}
-              visibleIndicators={visibleIndicators}
-              onSelectionChange={handleSelectionChange}
-              onSingleCandleClick={handleSingleCandleClick}
-              refHighlightIndices={refHighlightIndices}
-              refHighlightTimestamps={refHighlightTimestamps}
-              selectedCandles={selectedCandles}
-              focusTimestamp={focusTimestamp}
-            />
+            <div className="chart-area">
+              <CandlestickChart
+                candles={candles}
+                indicators={indicators}
+                hypothesis={hypothesis}
+                visibleIndicators={visibleIndicators}
+                onSelectionChange={handleSelectionChange}
+                onSingleCandleClick={handleSingleCandleClick}
+                refHighlightIndices={refHighlightIndices}
+                refHighlightTimestamps={refHighlightTimestamps}
+                selectedCandles={selectedCandles}
+                focusTimestamp={focusTimestamp}
+                rsiBodyRef={rsiBodyRef}
+              />
+            </div>
 
-            <HypothesisPanel hypothesis={hypothesis} />
+            {showInfoPanel && (
+              <div className="info-panel">
+                {showRsi && (
+                  <div className="rsi-section">
+                    <div className="info-panel-label">RSI (14) — 過買い:70 / 過売り:30</div>
+                    <div ref={rsiBodyRef} />
+                  </div>
+                )}
+                {hypothesis && <HypothesisPanel hypothesis={hypothesis} />}
+              </div>
+            )}
           </div>
 
           <div className="chat-section">
