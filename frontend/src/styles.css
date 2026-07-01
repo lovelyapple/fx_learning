@@ -123,8 +123,16 @@ body {
   flex-shrink: 0;
 }
 
+.info-panel.info-panel-hidden {
+  display: none;
+}
+
 .chart-section.split-half .info-panel {
   flex-shrink: 1;
+}
+
+.rsi-section.rsi-section-hidden {
+  display: none;
 }
 
 .info-panel-label {

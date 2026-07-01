@@ -207,17 +207,14 @@ export default function App() {
               />
             </div>
 
-            {showInfoPanel && (
-              <div className="info-panel">
-                {showRsi && (
-                  <div className="rsi-section">
-                    <div className="info-panel-label">RSI (14) — 過買い:70 / 過売り:30</div>
-                    <div ref={rsiBodyRef} />
-                  </div>
-                )}
-                {hypothesis && <HypothesisPanel hypothesis={hypothesis} />}
+            {/* info-panel: RSI DOMは常にマウントしてref取得を保証、CSS で show/hide */}
+            <div className={`info-panel${showInfoPanel ? '' : ' info-panel-hidden'}`}>
+              <div className={`rsi-section${showRsi ? '' : ' rsi-section-hidden'}`}>
+                <div className="info-panel-label">RSI (14) — 過買い:70 / 過売り:30</div>
+                <div ref={rsiBodyRef} />
               </div>
-            )}
+              {hypothesis && <HypothesisPanel hypothesis={hypothesis} />}
+            </div>
           </div>
 
           <div className="chat-section">
