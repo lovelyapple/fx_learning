@@ -40,12 +40,6 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
   const selectedMarkersRef = useRef<SeriesMarker<Time>[]>([])
   const refMarkersRef = useRef<SeriesMarker<Time>[]>([])
   const hoveredCandleRef = useRef<CandleData | null>(null)
-  // ユーザーが設定したスクロール位置を保持（データ更新時の復元用）
-  const userTimeRangeRef = useRef<{ from: number; to: number } | null>(null)
-  // データ更新中はtrueにして、setData等が引き起こす自動スクロールがuserTimeRangeRefを上書きしないよう保護
-  const isDataUpdateRef = useRef(false)
-  // 前回のローソク足データ（初回ロードか増分更新かを判定するため）
-
   const syncMarkers = () => {
     if (!candleSeriesRef.current) return
     const merged = [...selectedMarkersRef.current, ...refMarkersRef.current]
@@ -158,12 +152,8 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     })
     if (chartContainerRef.current) ro.observe(chartContainerRef.current)
 
-    // ユーザーのスクロール/ズームをuserTimeRangeRefに保存 + RSI同期
+    // RSI同期のみ（スクロール位置保存は不要になった）
     chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-      if (!isDataUpdateRef.current) {
-        const tr = chart.timeScale().getVisibleRange()
-        if (tr) userTimeRangeRef.current = { from: tr.from as number, to: tr.to as number }
-      }
       const rsiChart = rsiChartRef.current
       if (!rsiChart || !range) return
       try { rsiChart.timeScale().setVisibleLogicalRange(range) } catch {}
@@ -258,8 +248,10 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
   // visibleIndicators / hypothesis が変わった時だけ series を作り直す
   useEffect(() => {
     if (!chartRef.current) return
-    const saved = userTimeRangeRef.current
-    isDataUpdateRef.current = true
+    // 変更前の位置を直接チャートAPIから読む（userTimeRangeRef不要）
+    const tr = chartRef.current.timeScale().getVisibleRange()
+    const saved = tr ? { from: tr.from as number, to: tr.to as number } : null
+
     lineSeriesRefs.current.forEach(s => chartRef.current?.removeSeries(s))
     lineSeriesRefs.current.clear()
 
@@ -290,10 +282,14 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
         lineSeriesRefs.current.set('hypothesis_stop', s)
       }
     }
-    setTimeout(() => {
-      if (saved) chartRef.current?.timeScale().setVisibleRange({ from: saved.from as any, to: saved.to as any })
-      isDataUpdateRef.current = false
-    }, 50)
+    // addLineSeries/removeSeries後のrefitをsetTimeoutで上書き復元
+    if (saved) {
+      const restore = () => chartRef.current?.timeScale().setVisibleRange({ from: saved.from as any, to: saved.to as any })
+      restore()
+      setTimeout(restore, 0)
+      setTimeout(restore, 50)
+      setTimeout(restore, 150)
+    }
   }, [visibleIndicators, hypothesis]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Indicators: データ更新時は既存 series に setData() するだけ（removeSeries 不要）
