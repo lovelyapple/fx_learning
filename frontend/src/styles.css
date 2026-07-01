@@ -281,6 +281,7 @@ body {
 .chat-messages {
   flex: 1;
   overflow-y: auto;
+  overflow-anchor: none;  /* ブラウザの自動スクロール補正を無効化 */
   padding: 12px;
   display: flex;
   flex-direction: column;

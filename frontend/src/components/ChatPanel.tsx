@@ -77,9 +77,14 @@ export function ChatPanel({ pair, interval, selectedCandles, onHypothesis, messa
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const prevMsgLenRef = useRef(messages.length)
 
+  // 新メッセージが追加された時だけ最下部へスクロール
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (messages.length > prevMsgLenRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+    prevMsgLenRef.current = messages.length
   }, [messages])
 
   // インラインリンク [足#N] のクリック: タイムスタンプベースでハイライト
