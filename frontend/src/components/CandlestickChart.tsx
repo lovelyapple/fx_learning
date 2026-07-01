@@ -161,12 +161,7 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
       if (!isDataUpdateRef.current) {
         const tr = chart.timeScale().getVisibleRange()
-        if (tr) {
-          console.log('[scroll] user range saved', tr.from, tr.to)
-          userTimeRangeRef.current = { from: tr.from as number, to: tr.to as number }
-        }
-      } else {
-        console.log('[scroll] BLOCKED (isDataUpdate=true)', range?.from, range?.to)
+        if (tr) userTimeRangeRef.current = { from: tr.from as number, to: tr.to as number }
       }
       const rsiChart = rsiChartRef.current
       if (!rsiChart || !range) return
@@ -249,10 +244,8 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
 
     // setData()後の内部オートスクロールが完全に終わってから復元 (setTimeout > RAF)
     setTimeout(() => {
-      console.log('[candles timeout] saved=', saved, 'isDataUpdate before=', isDataUpdateRef.current)
       if (saved && chart) chart.timeScale().setVisibleRange({ from: saved.from as any, to: saved.to as any })
       isDataUpdateRef.current = false
-      console.log('[candles timeout] restored, isDataUpdate=false')
     }, 50)
   }, [candles])
 
@@ -303,10 +296,8 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     }
 
     setTimeout(() => {
-      console.log('[indicators timeout] saved=', saved, 'isDataUpdate before=', isDataUpdateRef.current)
       if (saved) chartRef.current?.timeScale().setVisibleRange({ from: saved.from as any, to: saved.to as any })
       isDataUpdateRef.current = false
-      console.log('[indicators timeout] restored, isDataUpdate=false')
     }, 50)
   }, [indicators, visibleIndicators, hypothesis, candles])
 
@@ -436,10 +427,11 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
         }
       }
       // 常にチャートcanvasにもmousemoveを転送（crosshair表示のため）
+      // bubbles: false で上位要素に再浮上させない（無限ループ防止）
       const canvas = chartContainerRef.current?.querySelector('canvas')
       if (canvas) {
         canvas.dispatchEvent(new MouseEvent('mousemove', {
-          bubbles: true, cancelable: true,
+          bubbles: false, cancelable: true,
           clientX: e.clientX, clientY: e.clientY,
           buttons: e.buttons,
         }))
