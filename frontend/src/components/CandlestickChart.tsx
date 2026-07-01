@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useRef } from 'react'
-import { createChart, IChartApi, ISeriesApi, LineData, SeriesMarker, Time } from 'lightweight-charts'
+import { createChart, IChartApi, ISeriesApi, LineData, WhitespaceData, SeriesMarker, Time } from 'lightweight-charts'
 import { config } from '@/config'
 import type { CandleData, IndicatorData, HypothesisData } from '@/types'
 
@@ -153,12 +153,11 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     if (chartContainerRef.current) ro.observe(chartContainerRef.current)
 
     // RSI同期: メインチャートのスクロール/ズームをRSIに反映（rsiChartRefは後から設定される）
-    chart.timeScale().subscribeVisibleLogicalRangeChange(() => {
+    chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
       const rsiChart = rsiChartRef.current
-      if (!rsiChart) return
+      if (!rsiChart || !range) return
       try {
-        const range = chart.timeScale().getVisibleRange()
-        if (range) rsiChart.timeScale().setVisibleRange(range)
+        rsiChart.timeScale().setVisibleLogicalRange(range)
       } catch {}
     })
 
@@ -345,34 +344,37 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     const showRsi = visibleIndicators.includes('rsi')
     if (!showRsi || !indicators.length) return
 
-    // 外部コンテナの幅を適用
     if (externalRsiBodyRef?.current) {
       const w = chartContainerRef.current?.offsetWidth || 600
       rsiChart.applyOptions({ width: w })
     }
 
-    const rsiData: LineData[] = indicators
-      .filter(ind => ind.rsi !== null)
-      .map(ind => ({ time: (new Date(ind.timestamp).getTime() / 1000) as any, value: ind.rsi as number }))
-    if (!rsiData.length) return
+    // WhitespaceData でパディング: null RSI の足もタイムスタンプだけ含めて
+    // インデックスをメインチャートと揃える → setVisibleLogicalRange で完全同期可能
+    const allData: (LineData | WhitespaceData)[] = indicators.map(ind => {
+      const time = (new Date(ind.timestamp).getTime() / 1000) as any
+      if (ind.rsi === null) return { time } // whitespace (値なし)
+      return { time, value: ind.rsi as number }
+    })
+    const hasRsi = indicators.some(i => i.rsi !== null)
+    if (!hasRsi) return
 
     const rsiSeries = rsiChart.addLineSeries({ color: '#ce93d8', lineWidth: 2, title: 'RSI' })
-    rsiSeries.setData(rsiData)
+    rsiSeries.setData(allData)
 
-    // Overbought (70) line
+    // Overbought (70) / Oversold (30) ラインもインデックス合わせ
     const ob = rsiChart.addLineSeries({ color: 'rgba(244,67,54,0.6)', lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false })
-    ob.setData(rsiData.map(d => ({ time: d.time, value: 70 })))
+    ob.setData(allData.map(d => ({ time: d.time, value: 70 })))
 
-    // Oversold (30) line
     const os = rsiChart.addLineSeries({ color: 'rgba(76,175,80,0.6)', lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false })
-    os.setData(rsiData.map(d => ({ time: d.time, value: 30 })))
+    os.setData(allData.map(d => ({ time: d.time, value: 30 })))
 
     rsiSeriesListRef.current = [rsiSeries, ob, os]
 
-    // setData後にlightweight-chartsが右端にオートスクロールするのをrafで上書き
+    // データセット後インデックスが揃ったのでlogical rangeで同期
     requestAnimationFrame(() => {
-      const range = chartRef.current?.timeScale().getVisibleRange()
-      if (range) rsiChart.timeScale().setVisibleRange(range)
+      const range = chartRef.current?.timeScale().getVisibleLogicalRange()
+      if (range) rsiChart.timeScale().setVisibleLogicalRange(range)
     })
   }, [indicators, visibleIndicators])
 
