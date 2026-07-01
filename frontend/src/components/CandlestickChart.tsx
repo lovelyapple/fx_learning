@@ -187,10 +187,11 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     })
     rsiChartRef.current = rsiChart
 
-    // Sync time scales: main → RSI (logical range ベースで同期)
-    chartRef.current?.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+    // Sync: main chart の表示時刻変化を検知 → RSI に同じ時刻範囲を適用
+    chartRef.current?.timeScale().subscribeVisibleLogicalRangeChange(() => {
       try {
-        if (range) rsiChart.timeScale().setVisibleLogicalRange(range)
+        const range = chartRef.current?.timeScale().getVisibleRange()
+        if (range) rsiChart.timeScale().setVisibleRange(range)
       } catch {}
     })
 
@@ -365,9 +366,9 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
 
     rsiSeriesListRef.current = [rsiSeries, ob, os]
 
-    // RSIデータ描画後にmain chartのlogical rangeを同期
-    const logicalRange = chartRef.current?.timeScale().getVisibleLogicalRange()
-    if (logicalRange) rsiChart.timeScale().setVisibleLogicalRange(logicalRange)
+    // RSIデータ描画後にmain chartの表示時刻範囲を同期
+    const range = chartRef.current?.timeScale().getVisibleRange()
+    if (range) rsiChart.timeScale().setVisibleRange(range)
   }, [indicators, visibleIndicators])
 
   // Drag selection via captureRef (transparent div on top of chart, z-index:2)
