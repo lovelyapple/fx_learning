@@ -182,6 +182,7 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
       selectionSeriesRef.current = null
       hoverSeriesRef.current = null
       lineSeriesRefs.current.clear()
+      prevCandlesRef.current = []  // チャート再マウント時に必ずsetData()が走るようリセット
     }
   }, [])
 
