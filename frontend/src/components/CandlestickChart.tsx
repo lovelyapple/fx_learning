@@ -44,6 +44,8 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
   const userTimeRangeRef = useRef<{ from: number; to: number } | null>(null)
   // データ更新中はtrueにして、setData等が引き起こす自動スクロールがuserTimeRangeRefを上書きしないよう保護
   const isDataUpdateRef = useRef(false)
+  // 前回のローソク足データ（初回ロードか増分更新かを判定するため）
+  const prevCandlesRef = useRef<CandleData[]>([])
 
   const syncMarkers = () => {
     if (!candleSeriesRef.current) return
@@ -231,44 +233,53 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
   useEffect(() => {
     if (!candleSeriesRef.current || !candles.length) return
 
-    const chart = chartRef.current
-    const saved = userTimeRangeRef.current
-
-    isDataUpdateRef.current = true
-    candleSeriesRef.current.setData(candles.map(c => ({
+    const prev = prevCandlesRef.current
+    const toBar = (c: CandleData) => ({
       time: (new Date(c.timestamp).getTime() / 1000) as any,
       open: c.open, high: c.high, low: c.low, close: c.close,
-    })))
-    if (selectedMarkersRef.current.length) {
-      syncMarkers()
-    }
-    if (selectionSeriesRef.current && selectedCandlesRef.current.length) {
-      selectionSeriesRef.current.setData(selectedCandlesRef.current.map(c => ({
-        time: (new Date(c.timestamp).getTime() / 1000) as any,
-        open: c.open, high: c.high, low: c.low, close: c.close,
-      })))
+    })
+
+    const isIncrementalUpdate =
+      prev.length > 0 &&
+      prev[0].timestamp === candles[0].timestamp  // 先頭が同じ = 同じ足種/期間
+
+    if (isIncrementalUpdate) {
+      // 増分更新: update() を使いスクロールを触らない
+      // 既存足の更新（最終足のOHLC変化）+ 新しい足の追加
+      const prevLastTs = prev[prev.length - 1].timestamp
+      const newIdx = candles.findIndex(c => c.timestamp > prevLastTs)
+      const toUpdate = newIdx >= 0 ? candles.slice(Math.max(0, newIdx - 1)) : [candles[candles.length - 1]]
+      toUpdate.forEach(c => candleSeriesRef.current?.update(toBar(c)))
+    } else {
+      // 初回ロード or 足種/期間変更: setData() + スクロールはリセット許容
+      isDataUpdateRef.current = true
+      candleSeriesRef.current.setData(candles.map(toBar))
+      userTimeRangeRef.current = null  // 位置リセット許容（新しい足種）
+      requestAnimationFrame(() => { requestAnimationFrame(() => { isDataUpdateRef.current = false }) })
     }
 
-    if (saved && chart) {
-      chart.timeScale().setVisibleRange({ from: saved.from as any, to: saved.to as any })
-      requestAnimationFrame(() => {
-        chart.timeScale().setVisibleRange({ from: saved.from as any, to: saved.to as any })
-        // 2フレーム目でフラグを解除 (setDataの非同期スクロールが落ち着いた後)
-        requestAnimationFrame(() => { isDataUpdateRef.current = false })
-      })
-    } else {
-      requestAnimationFrame(() => { requestAnimationFrame(() => { isDataUpdateRef.current = false }) })
+    prevCandlesRef.current = candles
+
+    if (selectedMarkersRef.current.length) syncMarkers()
+    if (selectionSeriesRef.current && selectedCandlesRef.current.length) {
+      selectionSeriesRef.current.setData(selectedCandlesRef.current.map(toBar))
     }
   }, [candles])
 
   // Indicators + hypothesis lines
+  // indicatorsRef で最新データに常にアクセス（構造再構築エフェクトで使用）
+  const indicatorsRef = useRef<IndicatorData[]>([])
+  indicatorsRef.current = indicators
+
+  // 構造変更エフェクト: visibleIndicators / hypothesis / candles が変わった時のみ series を再構築
   useEffect(() => {
-    if (!chartRef.current || !indicators.length) return
+    if (!chartRef.current) return
     const saved = userTimeRangeRef.current
     isDataUpdateRef.current = true
     lineSeriesRefs.current.forEach(s => chartRef.current?.removeSeries(s))
     lineSeriesRefs.current.clear()
 
+    const inds = indicatorsRef.current
     const indicatorConfigs: Record<string, { key: keyof IndicatorData; color: string; title: string }> = {
       sma_20:    { key: 'sma_20',    color: '#ff9800', title: 'SMA 20' },
       sma_50:    { key: 'sma_50',    color: '#2196f3', title: 'SMA 50' },
@@ -280,8 +291,8 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     }
     for (const id of visibleIndicators) {
       const cfg = indicatorConfigs[id]
-      if (!cfg) continue
-      const data: LineData[] = indicators
+      if (!cfg || !inds.length) continue
+      const data: LineData[] = inds
         .filter(ind => ind[cfg.key] !== null)
         .map(ind => ({ time: (new Date(ind.timestamp).getTime() / 1000) as any, value: ind[cfg.key] as number }))
       if (!data.length) continue
@@ -312,7 +323,30 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     } else {
       requestAnimationFrame(() => { requestAnimationFrame(() => { isDataUpdateRef.current = false }) })
     }
-  }, [indicators, visibleIndicators, hypothesis, candles])
+  }, [visibleIndicators, hypothesis, candles])
+
+  // データ更新エフェクト: 自動更新でindicatorsが変わった時、既存seriesをupdate()で差分更新
+  useEffect(() => {
+    if (!indicators.length || !lineSeriesRefs.current.size) return
+    const indicatorConfigs: Record<string, keyof IndicatorData> = {
+      sma_20: 'sma_20', sma_50: 'sma_50',
+      ema_12: 'ema_12', ema_26: 'ema_26',
+      bb_upper: 'bb_upper', bb_middle: 'bb_middle', bb_lower: 'bb_lower',
+    }
+    // 最後の数点だけ update() (スクロール位置を変えない)
+    const latest = indicators.slice(-3)
+    for (const [id, series] of lineSeriesRefs.current) {
+      const key = indicatorConfigs[id]
+      if (!key) continue
+      latest.forEach(ind => {
+        const val = ind[key]
+        if (val === null) return
+        try {
+          series.update({ time: (new Date(ind.timestamp).getTime() / 1000) as any, value: val as number })
+        } catch {}
+      })
+    }
+  }, [indicators])
 
   // AI referenced candles highlight — merge both index and timestamp sources
   useEffect(() => {
@@ -360,6 +394,7 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
   }, [refHighlightIndices, refHighlightTimestamps, selectedCandles, candles])
 
   // RSI sub-chart rendering
+  // 構造変更（visibleIndicators切替）→ series を再構築
   useEffect(() => {
     const rsiChart = rsiChartRef.current
     if (!rsiChart) return
@@ -368,41 +403,52 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     rsiSeriesListRef.current = []
 
     const showRsi = visibleIndicators.includes('rsi')
-    if (!showRsi || !indicators.length) return
+    if (!showRsi) return
+
+    const inds = indicatorsRef.current
+    if (!inds.length) return
 
     if (externalRsiBodyRef?.current) {
       const w = chartContainerRef.current?.offsetWidth || 600
       rsiChart.applyOptions({ width: w })
     }
 
-    // WhitespaceData でパディング: null RSI の足もタイムスタンプだけ含めて
-    // インデックスをメインチャートと揃える → setVisibleLogicalRange で完全同期可能
-    const allData: (LineData | WhitespaceData)[] = indicators.map(ind => {
+    const allData: (LineData | WhitespaceData)[] = inds.map(ind => {
       const time = (new Date(ind.timestamp).getTime() / 1000) as any
-      if (ind.rsi === null) return { time } // whitespace (値なし)
+      if (ind.rsi === null) return { time }
       return { time, value: ind.rsi as number }
     })
-    const hasRsi = indicators.some(i => i.rsi !== null)
-    if (!hasRsi) return
+    if (!inds.some(i => i.rsi !== null)) return
 
     const rsiSeries = rsiChart.addLineSeries({ color: '#ce93d8', lineWidth: 2, title: 'RSI' })
     rsiSeries.setData(allData)
-
-    // Overbought (70) / Oversold (30) ラインもインデックス合わせ
     const ob = rsiChart.addLineSeries({ color: 'rgba(244,67,54,0.6)', lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false })
     ob.setData(allData.map(d => ({ time: d.time, value: 70 })))
-
     const os = rsiChart.addLineSeries({ color: 'rgba(76,175,80,0.6)', lineWidth: 1, lineStyle: 2, lastValueVisible: false, priceLineVisible: false })
     os.setData(allData.map(d => ({ time: d.time, value: 30 })))
-
     rsiSeriesListRef.current = [rsiSeries, ob, os]
 
-    // データセット後インデックスが揃ったのでlogical rangeで同期
+    // 初期同期
     requestAnimationFrame(() => {
       const range = chartRef.current?.timeScale().getVisibleLogicalRange()
       if (range) rsiChart.timeScale().setVisibleLogicalRange(range)
     })
-  }, [indicators, visibleIndicators])
+  }, [visibleIndicators])
+
+  // RSI データ更新: indicators が変わった時、既存series を update() で差分更新
+  useEffect(() => {
+    const [rsiSeries, ob, os] = rsiSeriesListRef.current
+    if (!rsiSeries || !indicators.length) return
+    const latest = indicators.slice(-3)
+    latest.forEach(ind => {
+      const time = (new Date(ind.timestamp).getTime() / 1000) as any
+      if (ind.rsi !== null) {
+        try { rsiSeries.update({ time, value: ind.rsi }) } catch {}
+      }
+      try { ob.update({ time, value: 70 }) } catch {}
+      try { os.update({ time, value: 30 }) } catch {}
+    })
+  }, [indicators])
 
   // Drag selection via captureRef (transparent div on top of chart, z-index:2)
   useEffect(() => {
