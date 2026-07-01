@@ -77,6 +77,7 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
       timeScale: {
         timeVisible: true,
         secondsVisible: false,
+        lockVisibleTimeRangeOnResize: true,
         tickMarkFormatter: (time: number) =>
           new Date(time * 1000).toLocaleTimeString('ja-JP', {
             timeZone: 'Asia/Tokyo',
