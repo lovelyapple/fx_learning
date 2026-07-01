@@ -297,8 +297,11 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
         lineSeriesRefs.current.set('hypothesis_stop', s)
       }
     }
+    // removeSeries が内部でcontentRefitを走らせるため rafで確実に復元
     if (prevTimeRange) {
-      chartRef.current?.timeScale().setVisibleRange(prevTimeRange)
+      requestAnimationFrame(() => {
+        chartRef.current?.timeScale().setVisibleRange(prevTimeRange)
+      })
     }
   }, [indicators, visibleIndicators, hypothesis, candles])
 
