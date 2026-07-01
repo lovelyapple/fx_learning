@@ -42,6 +42,8 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
   const hoveredCandleRef = useRef<CandleData | null>(null)
   // ユーザーが設定したスクロール位置を保持（データ更新時の復元用）
   const userTimeRangeRef = useRef<{ from: number; to: number } | null>(null)
+  // データ更新中はtrueにして、setData等が引き起こす自動スクロールがuserTimeRangeRefを上書きしないよう保護
+  const isDataUpdateRef = useRef(false)
 
   const syncMarkers = () => {
     if (!candleSeriesRef.current) return
@@ -156,10 +158,12 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
 
     // ユーザーのスクロール/ズームをuserTimeRangeRefに保存 + RSI同期
     chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-      // ユーザーが変更した表示範囲を記録
-      const tr = chart.timeScale().getVisibleRange()
-      if (tr) userTimeRangeRef.current = { from: tr.from as number, to: tr.to as number }
-      // RSI同期
+      // データ更新中の自動スクロールは無視し、ユーザー操作のみ記録
+      if (!isDataUpdateRef.current) {
+        const tr = chart.timeScale().getVisibleRange()
+        if (tr) userTimeRangeRef.current = { from: tr.from as number, to: tr.to as number }
+      }
+      // RSI同期（常に実行）
       const rsiChart = rsiChartRef.current
       if (!rsiChart || !range) return
       try {
@@ -230,6 +234,7 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     const chart = chartRef.current
     const saved = userTimeRangeRef.current
 
+    isDataUpdateRef.current = true
     candleSeriesRef.current.setData(candles.map(c => ({
       time: (new Date(c.timestamp).getTime() / 1000) as any,
       open: c.open, high: c.high, low: c.low, close: c.close,
@@ -245,9 +250,14 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
     }
 
     if (saved && chart) {
-      const restore = () => chart.timeScale().setVisibleRange({ from: saved.from as any, to: saved.to as any })
-      restore()
-      requestAnimationFrame(restore)
+      chart.timeScale().setVisibleRange({ from: saved.from as any, to: saved.to as any })
+      requestAnimationFrame(() => {
+        chart.timeScale().setVisibleRange({ from: saved.from as any, to: saved.to as any })
+        // 2フレーム目でフラグを解除 (setDataの非同期スクロールが落ち着いた後)
+        requestAnimationFrame(() => { isDataUpdateRef.current = false })
+      })
+    } else {
+      requestAnimationFrame(() => { requestAnimationFrame(() => { isDataUpdateRef.current = false }) })
     }
   }, [candles])
 
@@ -255,6 +265,7 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
   useEffect(() => {
     if (!chartRef.current || !indicators.length) return
     const saved = userTimeRangeRef.current
+    isDataUpdateRef.current = true
     lineSeriesRefs.current.forEach(s => chartRef.current?.removeSeries(s))
     lineSeriesRefs.current.clear()
 
@@ -291,11 +302,15 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
         lineSeriesRefs.current.set('hypothesis_stop', s)
       }
     }
-    // removeSeries が内部でcontentRefitを走らせるため 同期+rafで確実に復元
+    // removeSeries/addSeries が contentRefit を走らせるため、同期+ダブルrafで確実に復元
     if (saved) {
-      const restore = () => chartRef.current?.timeScale().setVisibleRange({ from: saved.from as any, to: saved.to as any })
-      restore()
-      requestAnimationFrame(restore)
+      chartRef.current?.timeScale().setVisibleRange({ from: saved.from as any, to: saved.to as any })
+      requestAnimationFrame(() => {
+        chartRef.current?.timeScale().setVisibleRange({ from: saved.from as any, to: saved.to as any })
+        requestAnimationFrame(() => { isDataUpdateRef.current = false })
+      })
+    } else {
+      requestAnimationFrame(() => { requestAnimationFrame(() => { isDataUpdateRef.current = false }) })
     }
   }, [indicators, visibleIndicators, hypothesis, candles])
 
