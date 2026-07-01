@@ -191,9 +191,9 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
         vertLine: { color: '#758696', width: 1, style: 1, labelBackgroundColor: '#2B2B43' },
         horzLine: { color: '#758696', width: 1, style: 1, labelBackgroundColor: '#2B2B43' },
       },
-      timeScale: { timeVisible: true, secondsVisible: false, visible: false },
-      handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
-      handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: true },
+      timeScale: { timeVisible: true, secondsVisible: false, visible: false, lockVisibleTimeRangeOnResize: true },
+      handleScroll: false,  // RSI単独スクロール禁止。メインチャートに同期
+      handleScale: false,   // RSI単独ズーム禁止
     })
     rsiChartRef.current = rsiChart
 
@@ -369,9 +369,11 @@ export function CandlestickChart({ candles, indicators, hypothesis, visibleIndic
 
     rsiSeriesListRef.current = [rsiSeries, ob, os]
 
-    // RSIデータ描画後にmain chartの表示時刻範囲を同期
-    const range = chartRef.current?.timeScale().getVisibleRange()
-    if (range) rsiChart.timeScale().setVisibleRange(range)
+    // setData後にlightweight-chartsが右端にオートスクロールするのをrafで上書き
+    requestAnimationFrame(() => {
+      const range = chartRef.current?.timeScale().getVisibleRange()
+      if (range) rsiChart.timeScale().setVisibleRange(range)
+    })
   }, [indicators, visibleIndicators])
 
   // Drag selection via captureRef (transparent div on top of chart, z-index:2)
